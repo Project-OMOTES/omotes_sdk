@@ -21,7 +21,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
 ]
 
-dependencies = ["coloredlogs"]
+dependencies = [
+    "aio-pika ~= 9.3.1",
+    "omotes-sdk-protocol ~= 0.0.1"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -57,10 +60,6 @@ requires = [
 
 [tool.setuptools-git-versioning]
 enabled = true
-#version_file = "VERSION"
-#count_commits_from_version_file = true
-#dev_template = "{tag}.{branch}{ccount}"
-#dirty_template = "{tag}.{branch}{ccount}"
 
 [tool.pytest.ini_options]
 addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 95"

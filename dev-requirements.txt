@@ -4,6 +4,10 @@
 #
 #    pip-compile --extra=dev --output-file=dev-requirements.txt pyproject.toml
 #
+aio-pika==9.3.1
+    # via omotes-sdk-python (pyproject.toml)
+aiormq==6.7.7
+    # via aio-pika
 black==22.1.0
     # via omotes-sdk-python (pyproject.toml)
 build==1.0.3
@@ -12,8 +16,6 @@ bump2version==1.0.1
     # via omotes-sdk-python (pyproject.toml)
 click==8.1.7
     # via black
-coloredlogs==15.0.1
-    # via omotes-sdk-python (pyproject.toml)
 coverage[toml]==7.4.1
     # via pytest-cov
 exceptiongroup==1.2.0
@@ -24,8 +26,8 @@ flake8==6.0.0
     #   omotes-sdk-python (pyproject.toml)
 flake8-pyproject==1.2.3
     # via omotes-sdk-python (pyproject.toml)
-humanfriendly==10.0
-    # via coloredlogs
+idna==3.6
+    # via yarl
 importlib-metadata==7.0.1
     # via build
 iniconfig==2.0.0
@@ -34,22 +36,30 @@ isort==5.13.2
     # via omotes-sdk-python (pyproject.toml)
 mccabe==0.7.0
     # via flake8
+multidict==6.0.4
+    # via yarl
 mypy==1.5.1
     # via omotes-sdk-python (pyproject.toml)
 mypy-extensions==1.0.0
     # via
     #   black
     #   mypy
+omotes-sdk-protocol==0.0.1
+    # via omotes-sdk-python (pyproject.toml)
 packaging==23.2
     # via
     #   build
     #   pytest
+pamqp==3.2.1
+    # via aiormq
 pathspec==0.12.1
     # via black
 platformdirs==4.1.0
     # via black
 pluggy==1.4.0
     # via pytest
+protobuf==4.25.2
+    # via omotes-sdk-protocol
 pycodestyle==2.10.0
     # via flake8
 pyflakes==3.0.1
@@ -75,6 +85,10 @@ typing-extensions==4.9.0
     # via
     #   black
     #   mypy
+yarl==1.9.4
+    # via
+    #   aio-pika
+    #   aiormq
 zipp==3.17.0
     # via importlib-metadata
 
