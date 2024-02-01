@@ -141,31 +141,3 @@ class OmotesInterface:
         self.broker_if.send_message_to(
             OmotesQueueNames.job_cancel_queue_name(job), message=cancel_msg.SerializeToString()
         )
-
-
-# broker_if = BrokerInterface(RabbitMQConfig(username="omotes", password="somepass1", virtual_host="omotes"))
-# broker_if.start()
-#
-# broker_if.add_queue_subscription("test_queue", print)
-#
-# broker_if.receive_next_message("test_queue", None, print, lambda: print("No message on queue"))
-# broker_if.receive_next_message("test_queue2", 10, print, lambda: print("No message on queue2"))
-# broker_if.receive_next_message("test_queue3", None, print, lambda: print("No message on queue3"))
-#
-# broker_if.send_message_to("test_queue", b"BLABLABLA")
-# broker_if.send_message_to("test_queue2", b"Whatsie")
-#
-# broker_if.join()
-
-
-#
-# broker_if.add_queue_subscription("test_queue", print)
-#
-# broker_if.receive_next_message("test_queue", None, print, lambda: print("No message on queue"))
-# broker_if.receive_next_message("test_queue2", 10, print, lambda: print("No message on queue2"))
-# broker_if.receive_next_message("test_queue3", None, print, lambda: print("No message on queue3"))
-#
-# broker_if.send_message_to("test_queue", b"BLABLABLA")
-# broker_if.send_message_to("test_queue2", b"Whatsie")
-#
-# broker_if.join()

@@ -16,13 +16,6 @@ from omotes_sdk.config import RabbitMQConfig
 logger = logging.getLogger("omotes_sdk")
 
 
-def check_set(self, name, value):
-    print(f"FOOOOOOOOOOOOOOOOOOOOOOOOOO Setting {name} to {value}", flush=True)
-    if value == "_shutdown":
-        print("ASSHOLE", flush=True)
-    super().__setattr__(name, value)
-
-
 @dataclass
 class QueueSubscriptionConsumer:
     """Consumes a queue until stopped and forwards received messages using a callback."""
@@ -33,19 +26,14 @@ class QueueSubscriptionConsumer:
     """Callback which is called on each message."""
 
     async def run(self):
-        a = asyncio.get_running_loop()._default_executor
         async with self.queue.iterator() as queue_iter:
-            a = asyncio.get_running_loop()._default_executor
             async for message in queue_iter:
-                a = asyncio.get_running_loop()._default_executor
                 async with message.process(requeue=True):
-                    a = asyncio.get_running_loop()._default_executor
                     logger.debug(
                         "Received with queue subscription on queue %s: %s",
                         self.queue.name,
                         message.body,
                     )
-                    a = asyncio.get_running_loop()._default_executor
                     await asyncio.get_running_loop().run_in_executor(
                         None, partial(self.callback_on_message, message.body)
                     )
@@ -204,10 +192,9 @@ class BrokerInterface(threading.Thread):
     async def _stop_broker_interface(self) -> None:
         """Cancel all subscriptions, close the channel and the connection."""
         logger.info("Stopping broker interface")
-        for queue_task in self._queue_subscription_tasks:
+        tasks_to_cancel = list(self._queue_subscription_tasks) + list(self._queue_retrieve_next_message_tasks)
+        for queue_task in tasks_to_cancel:
             queue_task.cancel()
-            # with suppress(asyncio.CancelledError):
-            # await queue_task
 
         await self._channel.close()
         await self._connection.close()

@@ -3,7 +3,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Callable
 
-from omotes_sdk_protocol.job_pb2 import JobSubmission, JobProgressUpdate, JobStatusUpdate
+from omotes_sdk_protocol.job_pb2 import JobSubmission, JobProgressUpdate, JobStatusUpdate, JobResult
 from omotes_sdk.broker_interface import BrokerInterface
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk.job import Job
@@ -57,7 +57,10 @@ class OrchestratorInterface:
             )
 
     def send_job_progress_update(self, job: Job, progress_update: JobProgressUpdate) -> None:
-        self.broker_if.send_message_to(OmotesQueueNames.job_progress_queue_name(job), progress_update)
+        self.broker_if.send_message_to(OmotesQueueNames.job_progress_queue_name(job), progress_update.SerializeToString())
 
     def send_job_status_update(self, job: Job, status_update: JobStatusUpdate) -> None:
-        self.broker_if.send_message_to(OmotesQueueNames.job_status_queue_name(job), status_update)
+        self.broker_if.send_message_to(OmotesQueueNames.job_status_queue_name(job), status_update.SerializeToString())
+
+    def send_job_result(self, job: Job, result: JobResult ) -> None:
+        self.broker_if.send_message_to(OmotesQueueNames.job_results_queue_name(job), result.SerializeToString())

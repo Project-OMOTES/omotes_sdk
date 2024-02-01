@@ -47,9 +47,6 @@ documentation = "https://readthedocs.org"
 repository = "https://github.com/Nieuwe-Warmte-Nu/omotes-sdk-python"
 changelog = "https://github.com/Nieuwe-Warmte-Nu/omotes-sdk-python/blob/main/CHANGELOG.md"
 
-[project.scripts]
-omotes_sdk = "omotes_sdk.infrastructure.app:cmdline_app"
-
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
