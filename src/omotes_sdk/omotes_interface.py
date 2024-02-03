@@ -28,9 +28,9 @@ class JobSubmissionCallbackHandler:
     """The job to listen to."""
     callback_on_finished: Callable[[Job, JobResult], None]
     """Handler which is called when a job finishes."""
-    callback_on_progress_update: Callable[[Job, JobProgressUpdate], None]
+    callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]]
     """Handler which is called on a job progress update."""
-    callback_on_status_update: Callable[[Job, JobStatusUpdate], None]
+    callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]]
     """Handler which is called on a job status update."""
 
     def callback_on_finished_wrapped(self, message: bytes) -> None:
@@ -47,7 +47,8 @@ class JobSubmissionCallbackHandler:
         :param message: Serialized message.
         """
         progress_update = JobProgressUpdate().ParseFromString(message)
-        self.callback_on_progress_update(self.job, progress_update)
+        if self.callback_on_progress_update:
+            self.callback_on_progress_update(self.job, progress_update)
 
     def callback_on_status_update_wrapped(self, message: bytes) -> None:
         """Parse a serialized JobStatusUpdate message and call handler.
@@ -55,7 +56,8 @@ class JobSubmissionCallbackHandler:
         :param message: Serialized message.
         """
         status_update = JobStatusUpdate().ParseFromString(message)
-        self.callback_on_status_update(self.job, status_update)
+        if self.callback_on_status_update:
+            self.callback_on_status_update(self.job, status_update)
 
 
 class OmotesInterface:
@@ -67,11 +69,11 @@ class OmotesInterface:
     def __init__(self, rabbitmq_config: RabbitMQConfig):
         self.broker_if = BrokerInterface(rabbitmq_config)
 
-    def start(self):
+    def start(self) -> None:
         """Start any other interfaces."""
         self.broker_if.start()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop any other interfaces."""
         self.broker_if.stop()
 
@@ -102,14 +104,16 @@ class OmotesInterface:
             callback_on_message=callback_handler.callback_on_finished_wrapped,
             callback_on_no_message=None,
         )
-        self.broker_if.add_queue_subscription(
-            queue_name=OmotesQueueNames.job_progress_queue_name(job),
-            callback_on_message=callback_handler.callback_on_progress_update_wrapped,
-        )
-        self.broker_if.add_queue_subscription(
-            queue_name=OmotesQueueNames.job_status_queue_name(job),
-            callback_on_message=callback_handler.callback_on_status_update_wrapped,
-        )
+        if callback_on_progress_update:
+            self.broker_if.add_queue_subscription(
+                queue_name=OmotesQueueNames.job_progress_queue_name(job),
+                callback_on_message=callback_handler.callback_on_progress_update_wrapped,
+            )
+        if callback_on_status_update:
+            self.broker_if.add_queue_subscription(
+                queue_name=OmotesQueueNames.job_status_queue_name(job),
+                callback_on_message=callback_handler.callback_on_status_update_wrapped,
+            )
 
     def submit_job(
         self,

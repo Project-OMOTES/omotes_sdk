@@ -18,7 +18,7 @@ class JobSubmissionCallbackHandler:
     workflow_type: WorkflowType
     callback_on_new_job: Callable[[JobSubmission, Job], None]
 
-    def callback_on_new_job_wrapped(self, message: bytes):
+    def callback_on_new_job_wrapped(self, message: bytes) -> None:
         submitted_job = JobSubmission()
         submitted_job.ParseFromString(message)
 
@@ -45,10 +45,10 @@ class OrchestratorInterface:
         self.broker_if = BrokerInterface(omotes_rabbitmq_config)
         self.workflow_type_manager = workflow_type_manager
 
-    def start(self):
+    def start(self) -> None:
         self.broker_if.start()
 
-    def stop(self):
+    def stop(self) -> None:
         self.broker_if.stop()
 
     def connect_to_job_submissions(

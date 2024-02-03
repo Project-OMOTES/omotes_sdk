@@ -74,9 +74,10 @@ def setup_logging(log_level: LogLevel, logger_name: Optional[str]) -> logging.Lo
         Name for this logger.
     """
     logger = logging.getLogger(logger_name)
+    logger_name = logger_name if logger_name else ''
 
     if logger_name not in CONFIGURED_LOGGERS:
-        print(f"Will use log level {log_level} for logger {logger_name}")
+        print(f"Will use log level {log_level} for logger '{logger_name}'")
         logger.setLevel(log_level.value)
 
         log_handler = logging.StreamHandler(sys.stdout)

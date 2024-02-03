@@ -5,7 +5,7 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from functools import partial
 import threading
-from typing import Callable, Optional
+from typing import Callable, Optional, Set, Dict
 
 from aio_pika import connect_robust, Message
 from aio_pika.abc import AbstractRobustConnection, AbstractChannel, AbstractQueue
@@ -24,7 +24,7 @@ class QueueSubscriptionConsumer:
     callback_on_message: Callable[[bytes], None]
     """Callback which is called on each message."""
 
-    async def run(self):
+    async def run(self) -> None:
         async with self.queue.iterator() as queue_iter:
             async for message in queue_iter:
                 async with message.process(requeue=True):
@@ -57,7 +57,7 @@ class QueueSingleMessageConsumer:
     callback_on_no_message: Optional[Callable[[], None]]
     """Callback which is called when no message is received in the alloted time."""
 
-    async def run(self):
+    async def run(self) -> None:
         logger.debug(
             "Waiting for next message on queue %s with timeout %s", self.queue.name, self.timeout
         )
@@ -89,11 +89,11 @@ class BrokerInterface(threading.Thread):
     """AMQP connection."""
     _channel: AbstractChannel
     """AMQP channel."""
-    _queue_subscription_consumer_by_name: dict[str, QueueSubscriptionConsumer]
+    _queue_subscription_consumer_by_name: Dict[str, QueueSubscriptionConsumer]
     """Task to consume messages when they are received ordered by queue name."""
-    _queue_subscription_tasks: set[Task]
+    _queue_subscription_tasks: Set[Task]
     """Reference to the queue subscription task """
-    _queue_retrieve_next_message_tasks: set[Task]
+    _queue_retrieve_next_message_tasks: Set[Task]
     """Reference to the queue next message task """
     _ready_for_processing: threading.Event
     """Thread-safe check which is set once the AMQP connection is up and running."""
@@ -113,7 +113,7 @@ class BrokerInterface(threading.Thread):
         self._stopping = False
         self._stopped = False
 
-    async def _send_message_to(self, queue_name: str, message: bytes):
+    async def _send_message_to(self, queue_name: str, message: bytes) -> None:
         logger.debug("Sending a message to %s containing: %s", queue_name, message)
         await self._channel.default_exchange.publish(Message(body=message), routing_key=queue_name)
 
@@ -178,7 +178,7 @@ class BrokerInterface(threading.Thread):
 
     def _remove_queue_next_message_task(
         self, queue_name: str, queue_retriever_task: Task, future: Future
-    ):
+    ) -> None:
         if queue_retriever_task in self._queue_retrieve_next_message_tasks:
             logger.debug(
                 "Waiting for single message on %s is done. Calling termination callback", queue_name
@@ -219,7 +219,7 @@ class BrokerInterface(threading.Thread):
         await self._channel.close()
         await self._connection.close()
 
-    def start(self):
+    def start(self) -> None:
         """Start the broker interface."""
         super().start()
         self._ready_for_processing.wait()
