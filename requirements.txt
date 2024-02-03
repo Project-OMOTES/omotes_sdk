@@ -12,7 +12,7 @@ idna==3.6
     # via yarl
 multidict==6.0.4
     # via yarl
-omotes-sdk-protocol==0.0.1
+omotes-sdk-protocol==0.0.3
     # via omotes-sdk-python (pyproject.toml)
 pamqp==3.2.1
     # via aiormq

@@ -23,7 +23,7 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.3.1",
-    "omotes-sdk-protocol ~= 0.0.1"
+    "omotes-sdk-protocol ~= 0.0.3"
 ]
 
 [project.optional-dependencies]

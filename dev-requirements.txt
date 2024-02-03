@@ -44,7 +44,7 @@ mypy-extensions==1.0.0
     # via
     #   black
     #   mypy
-omotes-sdk-protocol==0.0.1
+omotes-sdk-protocol==0.0.3
     # via omotes-sdk-python (pyproject.toml)
 packaging==23.2
     # via
