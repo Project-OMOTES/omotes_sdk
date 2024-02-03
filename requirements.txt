@@ -4,7 +4,21 @@
 #
 #    pip-compile --output-file=requirements.txt pyproject.toml
 #
-coloredlogs==15.0.1
+aio-pika==9.3.1
     # via omotes-sdk-python (pyproject.toml)
-humanfriendly==10.0
-    # via coloredlogs
+aiormq==6.7.7
+    # via aio-pika
+idna==3.6
+    # via yarl
+multidict==6.0.4
+    # via yarl
+omotes-sdk-protocol==0.0.3
+    # via omotes-sdk-python (pyproject.toml)
+pamqp==3.2.1
+    # via aiormq
+protobuf==4.25.2
+    # via omotes-sdk-protocol
+yarl==1.9.4
+    # via
+    #   aio-pika
+    #   aiormq

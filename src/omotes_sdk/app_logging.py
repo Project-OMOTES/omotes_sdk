@@ -1,4 +1,4 @@
-#  Copyright (c) 2023. {cookiecutter.cookiecutter.maintainer_name}}
+#  Copyright (c) 2023. Deltares & TNO
 #
 #  This program is free software: you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -13,19 +13,19 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-    Setup logging for this python application
-"""
+"""Setup logging for this python application."""
 
 import logging
-from typing import Optional
-
-import coloredlogs
 import sys
 from enum import Enum
+from typing import Optional, Dict
+
+CONFIGURED_LOGGERS: Dict[str, logging.Logger] = {}
 
 
 class LogLevel(Enum):
+    """Simple enum to cover log levels for logging library."""
+
     DEBUG = logging.DEBUG
     INFO = logging.INFO
     WARNING = logging.WARNING
@@ -34,7 +34,7 @@ class LogLevel(Enum):
     @staticmethod
     def parse(value: str) -> "LogLevel":
         """
-        parses a given string for LogLevel's
+        Parses a given string for LogLevel's.
 
         Parameters
         ----------
@@ -62,30 +62,31 @@ class LogLevel(Enum):
         return result
 
 
-LOG_LEVEL: Optional[LogLevel] = None
-
-
-def setup_logging(log_level: LogLevel, colors: bool = True) -> None:
+def setup_logging(log_level: LogLevel, logger_name: Optional[str]) -> logging.Logger:
     """
-    Initializes logging
+    Initializes logging.
 
     Parameters
     ----------
     log_level : LogLevel
         The LogLevel for this logger.
+    logger_name : Optional[str]
+        Name for this logger.
     """
-    global LOG_LEVEL
-    root_logger = logging.getLogger()
-    root_logger.info("Will use log level:", log_level)
-    root_logger.setLevel(log_level.value)
-    LOG_LEVEL = log_level
-    if colors:
-        coloredlogs.install(log_level.value, logger=root_logger)
-    else:
+    logger = logging.getLogger(logger_name)
+    logger_name = logger_name if logger_name else ''
+
+    if logger_name not in CONFIGURED_LOGGERS:
+        print(f"Will use log level {log_level} for logger '{logger_name}'")
+        logger.setLevel(log_level.value)
+
         log_handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
-            fmt="%(asctime)s [%(threadName)s][%(filename)s:%(lineno)d][%(levelname)s]: %(message)s"
+            fmt="%(asctime)s [%(threadName)s][%(filename)s:%(lineno)d]"
+                "[%(levelname)s]: %(message)s"
         )
         log_handler.setFormatter(formatter)
-        root_logger.addHandler(log_handler)
-    pass
+        logger.addHandler(log_handler)
+        CONFIGURED_LOGGERS[logger_name] = logger
+
+    return logger

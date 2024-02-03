@@ -12,9 +12,9 @@
 #
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+import os
 
-"""
-    __init__.py file containing the defaults
-"""
+from omotes_sdk.app_logging import setup_logging, LogLevel
 
-from omotes_sdk import main
+setup_logging(LogLevel.parse(os.environ.get("LOG_LEVEL", "DEBUG")), "omotes_sdk")
+setup_logging(LogLevel.parse(os.environ.get("LOG_LEVEL", "DEBUG")), "aio_pika")
