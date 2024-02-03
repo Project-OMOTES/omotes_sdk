@@ -2,11 +2,10 @@ import asyncio
 import logging
 from asyncio import Task
 from concurrent.futures import Future
-from contextlib import suppress
 from dataclasses import dataclass
 from functools import partial
 import threading
-from typing import Callable, Awaitable, Optional
+from typing import Callable, Optional
 
 from aio_pika import connect_robust, Message
 from aio_pika.abc import AbstractRobustConnection, AbstractChannel, AbstractQueue
@@ -43,8 +42,9 @@ class QueueSubscriptionConsumer:
 class QueueSingleMessageConsumer:
     """Retrieves a single message from a queue and processes the message using a callback.
 
-    Will only work if a single message is expected to publish to the queue. Otherwise, the consumer subscription
-    may receive multiple messages and a number of messages will be lost. Only the first message will be accepted and
+    Will only work if a single message is expected to publish to the queue. Otherwise, the
+    consumer subscription may receive multiple messages and a number of messages will be lost.
+    Only the first message will be accepted and
     processed.
     """
 
@@ -58,16 +58,20 @@ class QueueSingleMessageConsumer:
     """Callback which is called when no message is received in the alloted time."""
 
     async def run(self):
-        logger.debug("Waiting for next message on queue %s with timeout %s", self.queue.name, self.timeout)
+        logger.debug(
+            "Waiting for next message on queue %s with timeout %s", self.queue.name, self.timeout
+        )
         async with self.queue.iterator() as queue_iter:
             try:
-                message = await asyncio.wait_for(anext(queue_iter), timeout=self.timeout)
+                message = await asyncio.wait_for(anext(queue_iter), timeout=self.timeout)  # noqa
             except TimeoutError:
                 if self.callback_on_no_message:
                     asyncio.get_running_loop().run_in_executor(None, self.callback_on_no_message)
             else:
                 async with message.process(requeue=True):
-                    logger.debug("Received next message on queue %s: %s", self.queue.name, message.body)
+                    logger.debug(
+                        "Received next message on queue %s: %s", self.queue.name, message.body
+                    )
                     await asyncio.get_running_loop().run_in_executor(
                         None, partial(self.callback_on_message, message.body)
                     )
@@ -113,14 +117,20 @@ class BrokerInterface(threading.Thread):
         logger.debug("Sending a message to %s containing: %s", queue_name, message)
         await self._channel.default_exchange.publish(Message(body=message), routing_key=queue_name)
 
-    async def _add_queue_subscription(self, queue_name: str, callback_on_message: Callable[[bytes], None]) -> None:
+    async def _add_queue_subscription(
+        self, queue_name: str, callback_on_message: Callable[[bytes], None]
+    ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
         :param queue_name: Name of the queue to declare.
-        :param callback_on_message: Callback which is called from a separate thread to process the message body.
+        :param callback_on_message: Callback which is called from a separate thread to process the
+            message body.
         """
         if queue_name in self._queue_subscription_consumer_by_name:
-            logger.error("Attempting to declare a subscription on %s but a subscription on this queue already exists.")
+            logger.error(
+                "Attempting to declare a subscription on %s but a "
+                "subscription on this queue already exists."
+            )
             raise RuntimeError(f"Queue subscription for {queue_name} already exists.")
         logger.info("Declaring queue and adding subscription to %s", queue_name)
         queue = await self._channel.declare_queue(queue_name)
@@ -142,7 +152,9 @@ class BrokerInterface(threading.Thread):
     ) -> None:
         logger.info("Declaring queue and retrieving the next message to %s", queue_name)
         queue = await self._channel.declare_queue(queue_name)
-        queue_retriever = QueueSingleMessageConsumer(queue, timeout, callback_on_message, callback_on_no_message)
+        queue_retriever = QueueSingleMessageConsumer(
+            queue, timeout, callback_on_message, callback_on_no_message
+        )
 
         queue_retriever_task = asyncio.create_task(queue_retriever.run())
         queue_retriever_task.add_done_callback(
@@ -150,7 +162,9 @@ class BrokerInterface(threading.Thread):
         )
         self._queue_retrieve_next_message_tasks.add(queue_retriever_task)
 
-    def _remove_queue_subscription_task(self, queue_name: str, queue_subscription_task: Task, future: Future) -> None:
+    def _remove_queue_subscription_task(
+        self, queue_name: str, queue_subscription_task: Task, future: Future
+    ) -> None:
         """Remove the queue from the internal cache.
 
         :param queue_name:
@@ -162,9 +176,13 @@ class BrokerInterface(threading.Thread):
             del self._queue_subscription_consumer_by_name[queue_name]
             self._queue_subscription_tasks.remove(queue_subscription_task)
 
-    def _remove_queue_next_message_task(self, queue_name: str, queue_retriever_task: Task, future: Future):
+    def _remove_queue_next_message_task(
+        self, queue_name: str, queue_retriever_task: Task, future: Future
+    ):
         if queue_retriever_task in self._queue_retrieve_next_message_tasks:
-            logger.debug("Waiting for single message on %s is done. Calling termination callback", queue_name)
+            logger.debug(
+                "Waiting for single message on %s is done. Calling termination callback", queue_name
+            )
             self._queue_retrieve_next_message_tasks.remove(queue_retriever_task)
 
     async def _setup_broker_interface(self) -> None:
@@ -192,7 +210,9 @@ class BrokerInterface(threading.Thread):
     async def _stop_broker_interface(self) -> None:
         """Cancel all subscriptions, close the channel and the connection."""
         logger.info("Stopping broker interface")
-        tasks_to_cancel = list(self._queue_subscription_tasks) + list(self._queue_retrieve_next_message_tasks)
+        tasks_to_cancel = list(self._queue_subscription_tasks) + list(
+            self._queue_retrieve_next_message_tasks
+        )
         for queue_task in tasks_to_cancel:
             queue_task.cancel()
 
@@ -200,14 +220,15 @@ class BrokerInterface(threading.Thread):
         await self._connection.close()
 
     def start(self):
+        """Start the broker interface."""
         super().start()
         self._ready_for_processing.wait()
 
     def run(self) -> None:
         """Run the broker interface and start the AMQP connection.
 
-        In a separate thread and starting a new, isolated eventloop. The AMQP connection and channel are started as its
-        first task.
+        In a separate thread and starting a new, isolated eventloop. The AMQP connection and
+        channel are started as its first task.
         """
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
@@ -218,7 +239,11 @@ class BrokerInterface(threading.Thread):
         finally:
             self._loop.close()
 
-    def add_queue_subscription(self, queue_name: str, callback_on_message: Callable[[bytes], None]) -> None:
+    def add_queue_subscription(
+        self, queue_name: str, callback_on_message: Callable[[bytes], None]
+    ) -> None:
+        """Add AMQP subscription to a queue and register callback to be called on each new
+        message."""
         asyncio.run_coroutine_threadsafe(
             self._add_queue_subscription(queue_name, callback_on_message), self._loop
         ).result()
@@ -232,12 +257,17 @@ class BrokerInterface(threading.Thread):
     ) -> None:
         """
         :param queue_name: Name of the queue to retrieve a message from.
-        :param timeout: Time to wait for message to arrive in seconds. If None is used, the timeout is infinite.
+        :param timeout: Time to wait for message to arrive in seconds. If None is used, the timeout
+            is infinite.
         :param callback_on_message: Callback which is called when the message is received.
-        :param callback_on_no_message: Callback which is called when no message is received in the alloted time.
+        :param callback_on_no_message: Callback which is called when no message is received in the
+            alloted time.
         """
         asyncio.run_coroutine_threadsafe(
-            self._receive_next_message(queue_name, timeout, callback_on_message, callback_on_no_message), self._loop
+            self._receive_next_message(
+                queue_name, timeout, callback_on_message, callback_on_no_message
+            ),
+            self._loop,
         ).result()
 
     def send_message_to(self, queue_name: str, message: bytes) -> None:
@@ -246,7 +276,9 @@ class BrokerInterface(threading.Thread):
         :param queue_name: Name of the queue to publish the message to.
         :param message: The message to send.
         """
-        asyncio.run_coroutine_threadsafe(self._send_message_to(queue_name, message), self._loop).result()
+        asyncio.run_coroutine_threadsafe(
+            self._send_message_to(queue_name, message), self._loop
+        ).result()
 
     def stop(self) -> None:
         """Stop the broker interface.

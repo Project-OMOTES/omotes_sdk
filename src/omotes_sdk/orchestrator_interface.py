@@ -27,7 +27,8 @@ class JobSubmissionCallbackHandler:
             self.callback_on_new_job(submitted_job, job)
         else:
             logger.error(
-                "Received a job submission (id: %s) that was meant for workflow type %s but found it on queue %s. Dropping message.",
+                "Received a job submission (id: %s) that was meant for workflow type %s but found "
+                "it on queue %s. Dropping message.",
                 submitted_job.uuid,
                 submitted_job.workflow_type,
                 self.workflow_type,
@@ -38,7 +39,9 @@ class OrchestratorInterface:
     broker_if: BrokerInterface
     workflow_type_manager: WorkflowTypeManager
 
-    def __init__(self, omotes_rabbitmq_config: RabbitMQConfig, workflow_type_manager: WorkflowTypeManager):
+    def __init__(
+        self, omotes_rabbitmq_config: RabbitMQConfig, workflow_type_manager: WorkflowTypeManager
+    ):
         self.broker_if = BrokerInterface(omotes_rabbitmq_config)
         self.workflow_type_manager = workflow_type_manager
 
@@ -48,7 +51,9 @@ class OrchestratorInterface:
     def stop(self):
         self.broker_if.stop()
 
-    def connect_to_job_submissions(self, callback_on_new_job: Callable[[JobSubmission, Job], None]) -> None:
+    def connect_to_job_submissions(
+        self, callback_on_new_job: Callable[[JobSubmission, Job], None]
+    ) -> None:
         for workflow_type in self.workflow_type_manager.possible_workflows:
             callback_handler = JobSubmissionCallbackHandler(workflow_type, callback_on_new_job)
             self.broker_if.add_queue_subscription(
@@ -57,10 +62,16 @@ class OrchestratorInterface:
             )
 
     def send_job_progress_update(self, job: Job, progress_update: JobProgressUpdate) -> None:
-        self.broker_if.send_message_to(OmotesQueueNames.job_progress_queue_name(job), progress_update.SerializeToString())
+        self.broker_if.send_message_to(
+            OmotesQueueNames.job_progress_queue_name(job), progress_update.SerializeToString()
+        )
 
     def send_job_status_update(self, job: Job, status_update: JobStatusUpdate) -> None:
-        self.broker_if.send_message_to(OmotesQueueNames.job_status_queue_name(job), status_update.SerializeToString())
+        self.broker_if.send_message_to(
+            OmotesQueueNames.job_status_queue_name(job), status_update.SerializeToString()
+        )
 
-    def send_job_result(self, job: Job, result: JobResult ) -> None:
-        self.broker_if.send_message_to(OmotesQueueNames.job_results_queue_name(job), result.SerializeToString())
+    def send_job_result(self, job: Job, result: JobResult) -> None:
+        self.broker_if.send_message_to(
+            OmotesQueueNames.job_results_queue_name(job), result.SerializeToString()
+        )

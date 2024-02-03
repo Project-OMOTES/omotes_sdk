@@ -22,34 +22,57 @@ logger = logging.getLogger("omotes_sdk")
 
 @dataclass
 class JobSubmissionCallbackHandler:
+    """Handler for updates on a submitted job."""
+
     job: Job
+    """The job to listen to."""
     callback_on_finished: Callable[[Job, JobResult], None]
+    """Handler which is called when a job finishes."""
     callback_on_progress_update: Callable[[Job, JobProgressUpdate], None]
+    """Handler which is called on a job progress update."""
     callback_on_status_update: Callable[[Job, JobStatusUpdate], None]
+    """Handler which is called on a job status update."""
 
     def callback_on_finished_wrapped(self, message: bytes) -> None:
+        """Parse a serialized JobResult message and call handler.
+
+        :param message: Serialized message.
+        """
         job_result = JobResult().ParseFromString(message)
         self.callback_on_finished(self.job, job_result)
 
     def callback_on_progress_update_wrapped(self, message: bytes) -> None:
+        """Parse a serialized JobProgressUpdate message and call handler.
+
+        :param message: Serialized message.
+        """
         progress_update = JobProgressUpdate().ParseFromString(message)
         self.callback_on_progress_update(self.job, progress_update)
 
     def callback_on_status_update_wrapped(self, message: bytes) -> None:
+        """Parse a serialized JobStatusUpdate message and call handler.
+
+        :param message: Serialized message.
+        """
         status_update = JobStatusUpdate().ParseFromString(message)
         self.callback_on_status_update(self.job, status_update)
 
 
 class OmotesInterface:
+    """SDK interface for other applications to communicate with OMOTES."""
+
     broker_if: BrokerInterface
+    """Interface to RabbitMQ broker."""
 
     def __init__(self, rabbitmq_config: RabbitMQConfig):
         self.broker_if = BrokerInterface(rabbitmq_config)
 
     def start(self):
+        """Start any other interfaces."""
         self.broker_if.start()
 
     def stop(self):
+        """Stop any other interfaces."""
         self.broker_if.stop()
 
     def connect_to_submitted_job(
@@ -61,14 +84,13 @@ class OmotesInterface:
     ) -> None:
         """(Re)connect to the running job.
 
-        Useful when the application using this SDK restarts and needs to reconnect to already running jobs.
-        Assumes that the job exists otherwise the callbacks will never be called.
+        Useful when the application using this SDK restarts and needs to reconnect to already
+        running jobs. Assumes that the job exists otherwise the callbacks will never be called.
 
         :param job: The job to reconnect to.
         :param callback_on_finished: Called when the job has a result.
         :param callback_on_progress_update: Called when there is a progress update for the job.
         :param callback_on_status_update: Called when there is a status update for the job.
-        :return:
         """
         callback_handler = JobSubmissionCallbackHandler(
             job, callback_on_finished, callback_on_progress_update, callback_on_status_update
@@ -105,15 +127,18 @@ class OmotesInterface:
         :param job_config: Any job-specific configuration parameters.
         :param workflow_type: Type of the workflow to start.
         :param job_timeout: How long the job may take before it is considered to be timeout.
-        :param callback_on_finished: Callback which is called with the job result once the job is done.
+        :param callback_on_finished: Callback which is called with the job result once the job is
+            done.
         :param callback_on_progress_update: Callback which is called with any progress updates.
         :param callback_on_status_update: Callback which is called with any status updates.
-        :return: The job handle which is created. This object needs to be saved persistently by the program using this
-            SDK in order to resume listening to jobs in progress after a restart.
+        :return: The job handle which is created. This object needs to be saved persistently by the
+            program using this SDK in order to resume listening to jobs in progress after a restart.
         """
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
 
-        self.connect_to_submitted_job(job, callback_on_finished, callback_on_progress_update, callback_on_status_update)
+        self.connect_to_submitted_job(
+            job, callback_on_finished, callback_on_progress_update, callback_on_status_update
+        )
 
         timeout_ms = round(job_timeout.total_seconds() * 1000) if job_timeout else None
         job_submission_msg = JobSubmission(
@@ -123,20 +148,20 @@ class OmotesInterface:
             esdl=esdl.encode(),
         )
         self.broker_if.send_message_to(
-            OmotesQueueNames.job_submission_queue_name(workflow_type), message=job_submission_msg.SerializeToString()
+            OmotesQueueNames.job_submission_queue_name(workflow_type),
+            message=job_submission_msg.SerializeToString(),
         )
 
         return job
 
-    def cancel_job(self, job: Job, callback_on_finished: Callable[[], None]) -> None:
-        # TODO Figure out a way to resume listening for the cancellation confirmation after a reboot of the SDK.
-        self.broker_if.receive_next_message(
-            queue_name=OmotesQueueNames.job_cancel_response_queue_name(job),
-            timeout=None,
-            callback_on_message=callback_on_finished,
-            callback_on_no_message=None,
-        )
+    def cancel_job(self, job: Job) -> None:
+        """Cancel a job.
 
+        If this succeeds or not will be send as a job status update through the
+        `callback_on_status_update` handler.
+
+        :param job: The job to cancel.
+        """
         cancel_msg = JobCancel(uuid=str(job.id))
         self.broker_if.send_message_to(
             OmotesQueueNames.job_cancel_queue_name(job), message=cancel_msg.SerializeToString()

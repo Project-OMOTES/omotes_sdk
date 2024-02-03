@@ -81,7 +81,8 @@ def setup_logging(log_level: LogLevel, logger_name: Optional[str]) -> logging.Lo
 
         log_handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
-            fmt="%(asctime)s [%(threadName)s][%(filename)s:%(lineno)d]" "[%(levelname)s]: %(message)s"
+            fmt="%(asctime)s [%(threadName)s][%(filename)s:%(lineno)d]"
+                "[%(levelname)s]: %(message)s"
         )
         log_handler.setFormatter(formatter)
         logger.addHandler(log_handler)
