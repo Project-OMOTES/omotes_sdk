@@ -1,6 +1,5 @@
 import io
 import logging
-import pickle
 import socket
 from typing import Callable
 from uuid import uuid4
@@ -8,28 +7,32 @@ from uuid import uuid4
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
 from kombu import Queue as KombuQueue
-import jsonpickle
 
 from omotes_sdk.internal.worker.configs import WorkerConfig
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
-from omotes_sdk.internal.orchestrator_worker_events.messages import (
-    StatusUpdateMessage,
-    TaskStatus,
-    CalculationResult,
+from omotes_sdk.internal.orchestrator_worker_events.messages.task_pb2 import (
+    TaskResult,
+    TaskProgressUpdate,
 )
 
 logger = logging.getLogger("omotes_sdk_internal")
 
 
 class TaskUtil:
-    def __init__(self, task: CeleryTask):
+    def __init__(self, job_id: uuid4, task: CeleryTask, broker_if: BrokerInterface):
+        self.job_id = job_id
         self.task = task
+        self.broker_if = broker_if
 
     def update_progress(self, fraction: float, message: str) -> None:
-        # TODO Needs to be fixed to not use Celery event system, but Broker Interface &
-        #  omotes_task_events queue
-        self.task.send_event(
-            "task-progress-update", progress={"fraction": fraction, "message": message}
+        self.broker_if.send_message_to(
+            WORKER.config.task_progress_queue_name,
+            TaskProgressUpdate(
+                job_id=self.job_id,
+                celery_task_id=self.task.request.id,
+                progress=0,
+                message="Job calculation started",
+            )
         )
 
 
@@ -42,7 +45,7 @@ class WorkerTask(CeleryTask):
         #  error is published to logs. SDK wouldn't be notified otherwise.
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes):
+def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -60,31 +63,22 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes):
         # logging_string = io.StringIO()
         logger.info("GROW worker started new task %s", job_id)
         broker_if.send_message_to(
-            WORKER.config.task_event_queue_name,
-            pickle.dumps(
-                StatusUpdateMessage(
-                    omotes_job_id=job_id,
-                    celery_task_id=task.request.id,
-                    status=TaskStatus.STARTED,
-                    task_type=task.name,
-                ).to_dict()
-            ),
+            WORKER.config.task_progress_queue_name,
+            TaskProgressUpdate(
+                job_id=job_id,
+                celery_task_id=task.request.id,
+                progress=0,
+                message="Job calculation started",
+            )
         )
-
-        result = WORKER_TASK_FUNCTION(task, job_id, esdl_string, TaskUtil(task).update_progress)
+        task_util = TaskUtil(job_id, task, broker_if)
+        result = WORKER_TASK_FUNCTION(task, job_id, esdl_string, task_util.update_progress)
+        task_util.update_progress(1.0, "Calculation finished.")
 
         broker_if.send_message_to(
-            WORKER.config.task_event_queue_name,
-            pickle.dumps(
-                StatusUpdateMessage(
-                    omotes_job_id=job_id,
-                    celery_task_id=task.request.id,
-                    status=TaskStatus.SUCCEEDED,
-                    task_type=task.name,
-                ).to_dict()
-            ),
+            WORKER.config.task_result_queue_name,
+            result,
         )
-    return jsonpickle.encode(result)
 
 
 class Worker:
@@ -99,7 +93,7 @@ class Worker:
         self.celery_app = Celery(
             "omotes",
             broker=f"amqp://{config.rabbitmq.username}:{config.rabbitmq.password}@{config.rabbitmq.host}:{config.rabbitmq.port}/{config.rabbitmq.virtual_host}",
-            backend=f"db+postgresql://{config.postgresql.username}:{config.postgresql.password}@{config.postgresql.host}:{config.postgresql.port}/{config.postgresql.database}",
+            # backend=f"db+postgresql://{config.postgresql.username}:{config.postgresql.password}@{config.postgresql.host}:{config.postgresql.port}/{config.postgresql.database}",
         )
 
         # Config of celery app
@@ -142,7 +136,7 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[WorkerTask, uuid4, bytes, UpdateProgressHandler], CalculationResult]
+WorkerTaskF = Callable[[WorkerTask, uuid4, bytes, UpdateProgressHandler], TaskResult]
 
 WORKER: Worker = None  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # noqa
@@ -150,8 +144,8 @@ WORKER_TASK_TYPE: str = None  # noqa
 
 
 def initialize_worker(
-    task_type: str,
-    task_function: WorkerTaskF,
+        task_type: str,
+        task_function: WorkerTaskF,
 ) -> None:
     global WORKER_TASK_FUNCTION, WORKER_TASK_TYPE, WORKER
     WORKER_TASK_TYPE = task_type
