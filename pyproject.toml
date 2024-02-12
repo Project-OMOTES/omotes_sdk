@@ -1,6 +1,6 @@
 [project]
 name = "omotes-sdk-python"
-requires-python = ">=3.10"
+requires-python = ">=3.8.1"
 dynamic = ["version"]
 authors = [
     { name = "Sebastiaan la Fleur", email = "sebastiaan.lafleur@tno.nl" }
@@ -23,7 +23,10 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.3.1",
-    "omotes-sdk-protocol ~= 0.0.3"
+    "omotes-sdk-protocol ~= 0.0.3",
+    "celery[sqlalchemy] ~= 5.3.6",
+    "psycopg2 ~= 2.9.9",
+    "jsonpickle ~= 3.0.2",
 ]
 
 [project.optional-dependencies]

@@ -10,7 +10,7 @@ from omotes_sdk.job import Job
 from omotes_sdk.queue_names import OmotesQueueNames
 from omotes_sdk.workflow_type import WorkflowType, WorkflowTypeManager
 
-logger = logging.getLogger("omotes_sdk")
+logger = logging.getLogger("omotes_sdk_internal")
 
 
 @dataclass

@@ -44,8 +44,7 @@ class QueueSingleMessageConsumer:
 
     Will only work if a single message is expected to publish to the queue. Otherwise, the
     consumer subscription may receive multiple messages and a number of messages will be lost.
-    Only the first message will be accepted and
-    processed.
+    Only the first message will be accepted and processed.
     """
 
     queue: AbstractQueue
@@ -63,7 +62,7 @@ class QueueSingleMessageConsumer:
         )
         async with self.queue.iterator() as queue_iter:
             try:
-                message = await asyncio.wait_for(anext(queue_iter), timeout=self.timeout)  # noqa
+                message = await asyncio.wait_for(anext(queue_iter), timeout=self.timeout)
             except TimeoutError:
                 if self.callback_on_no_message:
                     asyncio.get_running_loop().run_in_executor(None, self.callback_on_no_message)
@@ -112,6 +111,13 @@ class BrokerInterface(threading.Thread):
         self._stopping_lock = threading.Lock()
         self._stopping = False
         self._stopped = False
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
 
     async def _send_message_to(self, queue_name: str, message: bytes) -> None:
         logger.debug("Sending a message to %s containing: %s", queue_name, message)
@@ -215,9 +221,11 @@ class BrokerInterface(threading.Thread):
         )
         for queue_task in tasks_to_cancel:
             queue_task.cancel()
-
-        await self._channel.close()
-        await self._connection.close()
+        if self._channel:
+            await self._channel.close()
+        if self._connection:
+            await self._connection.close()
+        logger.info("Stopped broker interface")
 
     def start(self) -> None:
         """Start the broker interface."""
@@ -242,8 +250,6 @@ class BrokerInterface(threading.Thread):
     def add_queue_subscription(
         self, queue_name: str, callback_on_message: Callable[[bytes], None]
     ) -> None:
-        """Add AMQP subscription to a queue and register callback to be called on each new
-        message."""
         asyncio.run_coroutine_threadsafe(
             self._add_queue_subscription(queue_name, callback_on_message), self._loop
         ).result()

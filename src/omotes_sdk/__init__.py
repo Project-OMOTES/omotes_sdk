@@ -14,7 +14,9 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 
-from omotes_sdk.app_logging import setup_logging, LogLevel
+from omotes_sdk.internal.common.app_logging import setup_logging, LogLevel
 
+setup_logging(LogLevel.parse(os.environ.get("LOG_LEVEL", "DEBUG")), None)
 setup_logging(LogLevel.parse(os.environ.get("LOG_LEVEL", "DEBUG")), "omotes_sdk")
+setup_logging(LogLevel.parse(os.environ.get("LOG_LEVEL", "DEBUG")), "omotes_sdk_internal")
 setup_logging(LogLevel.parse(os.environ.get("LOG_LEVEL", "DEBUG")), "aio_pika")

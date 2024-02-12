@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable, Optional
 
-from omotes_sdk.broker_interface import BrokerInterface
+from omotes_sdk.internal.common.broker_interface import BrokerInterface
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk_protocol.job_pb2 import (
     JobResult,
