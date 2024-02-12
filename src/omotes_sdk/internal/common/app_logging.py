@@ -73,20 +73,24 @@ def setup_logging(log_level: LogLevel, logger_name: Optional[str]) -> logging.Lo
     logger_name : Optional[str]
         Name for this logger.
     """
+    if "" not in CONFIGURED_LOGGERS:
+        root_logger = logging.getLogger()
+        root_logger.setLevel(LogLevel.DEBUG.value)
+
+        log_handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            fmt="%(asctime)s [%(name)s][%(threadName)s][%(filename)s:%(lineno)d]"
+            "[%(levelname)s]: %(message)s"
+        )
+        log_handler.setFormatter(formatter)
+        root_logger.addHandler(log_handler)
+        CONFIGURED_LOGGERS[""] = root_logger
+
     logger = logging.getLogger(logger_name)
-    logger_name = logger_name if logger_name else ''
+    logger_name = logger_name if logger_name else ""
 
     if logger_name not in CONFIGURED_LOGGERS:
         print(f"Will use log level {log_level} for logger '{logger_name}'")
         logger.setLevel(log_level.value)
-
-        log_handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter(
-            fmt="%(asctime)s [%(threadName)s][%(filename)s:%(lineno)d]"
-                "[%(levelname)s]: %(message)s"
-        )
-        log_handler.setFormatter(formatter)
-        logger.addHandler(log_handler)
-        CONFIGURED_LOGGERS[logger_name] = logger
 
     return logger
