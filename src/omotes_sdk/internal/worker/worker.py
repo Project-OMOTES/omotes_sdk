@@ -30,8 +30,8 @@ class TaskUtil:
             TaskProgressUpdate(
                 job_id=self.job_id,
                 celery_task_id=self.task.request.id,
-                progress=0,
-                message="Job calculation started",
+                progress=fraction,
+                message=message,
             )
         )
 
@@ -62,19 +62,13 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes) -> 
         # global logging_string
         # logging_string = io.StringIO()
         logger.info("GROW worker started new task %s", job_id)
-        broker_if.send_message_to(
-            WORKER.config.task_progress_queue_name,
-            TaskProgressUpdate(
-                job_id=job_id,
-                celery_task_id=task.request.id,
-                progress=0,
-                message="Job calculation started",
-            )
-        )
-        task_util = TaskUtil(job_id, task, broker_if)
-        result = WORKER_TASK_FUNCTION(task, job_id, esdl_string, task_util.update_progress)
-        task_util.update_progress(1.0, "Calculation finished.")
 
+        task_util = TaskUtil(job_id, task, broker_if)
+        task_util.update_progress(0, "Job calculation started")
+
+        result = WORKER_TASK_FUNCTION(task, job_id, esdl_string, task_util.update_progress)
+
+        task_util.update_progress(1.0, "Calculation finished.")
         broker_if.send_message_to(
             WORKER.config.task_result_queue_name,
             result,
