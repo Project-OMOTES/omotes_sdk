@@ -22,7 +22,7 @@ build==1.0.3
     # via omotes-sdk-python (pyproject.toml)
 bump2version==1.0.1
     # via omotes-sdk-python (pyproject.toml)
-celery[sqlalchemy]==5.3.6
+celery==5.3.6
     # via omotes-sdk-python (pyproject.toml)
 click==8.1.7
     # via
@@ -37,11 +37,6 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-colorama==0.4.6
-    # via
-    #   build
-    #   click
-    #   pytest
 coverage[toml]==7.4.1
     # via pytest-cov
 exceptiongroup==1.2.0
@@ -52,8 +47,6 @@ flake8==6.1.0
     #   omotes-sdk-python (pyproject.toml)
 flake8-pyproject==1.2.3
     # via omotes-sdk-python (pyproject.toml)
-greenlet==3.0.3
-    # via sqlalchemy
 idna==3.6
     # via yarl
 importlib-metadata==7.0.1
@@ -76,7 +69,7 @@ mypy-extensions==1.0.0
     #   mypy
 mypy-protobuf==3.5.0
     # via omotes-sdk-python (pyproject.toml)
-omotes-sdk-protocol==0.0.3
+omotes-sdk-protocol==0.0.4
     # via omotes-sdk-python (pyproject.toml)
 packaging==23.2
     # via
@@ -97,8 +90,6 @@ protobuf==4.25.2
     # via
     #   mypy-protobuf
     #   omotes-sdk-protocol
-psycopg2==2.9.9
-    # via omotes-sdk-python (pyproject.toml)
 pycodestyle==2.11.1
     # via flake8
 pyflakes==3.1.0
@@ -117,8 +108,6 @@ setuptools-git-versioning==1.13.6
     # via omotes-sdk-python (pyproject.toml)
 six==1.16.0
     # via python-dateutil
-sqlalchemy==2.0.26
-    # via celery
 toml==0.10.2
     # via setuptools-git-versioning
 tomli==2.0.1
@@ -137,7 +126,6 @@ typing-extensions==4.9.0
     #   black
     #   kombu
     #   mypy
-    #   sqlalchemy
 tzdata==2024.1
     # via
     #   backports-zoneinfo

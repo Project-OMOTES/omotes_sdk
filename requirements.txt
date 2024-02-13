@@ -16,7 +16,7 @@ backports-zoneinfo[tzdata]==0.2.1
     #   kombu
 billiard==4.2.0
     # via celery
-celery[sqlalchemy]==5.3.6
+celery==5.3.6
     # via omotes-sdk-python (pyproject.toml)
 click==8.1.7
     # via
@@ -30,17 +30,13 @@ click-plugins==1.1.1
     # via celery
 click-repl==0.3.0
     # via celery
-colorama==0.4.6
-    # via click
-greenlet==3.0.3
-    # via sqlalchemy
 idna==3.6
     # via yarl
 kombu==5.3.5
     # via celery
 multidict==6.0.4
     # via yarl
-omotes-sdk-protocol==0.0.3
+omotes-sdk-protocol==0.0.4
     # via omotes-sdk-python (pyproject.toml)
 pamqp==3.2.1
     # via aiormq
@@ -48,18 +44,12 @@ prompt-toolkit==3.0.43
     # via click-repl
 protobuf==4.25.2
     # via omotes-sdk-protocol
-psycopg2==2.9.9
-    # via omotes-sdk-python (pyproject.toml)
 python-dateutil==2.8.2
     # via celery
 six==1.16.0
     # via python-dateutil
-sqlalchemy==2.0.26
-    # via celery
 typing-extensions==4.9.0
-    # via
-    #   kombu
-    #   sqlalchemy
+    # via kombu
 tzdata==2024.1
     # via
     #   backports-zoneinfo
