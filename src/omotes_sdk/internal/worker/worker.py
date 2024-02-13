@@ -1,7 +1,7 @@
 import io
 import logging
 import socket
-from typing import Callable
+from typing import Callable, Dict
 from uuid import uuid4
 
 from celery import Task as CeleryTask, Celery
@@ -72,7 +72,10 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, encoded_input_esdl: byt
         task_util = TaskUtil(job_id, task, broker_if)
         task_util.update_progress(0, "Job calculation started")
         input_esdl = encoded_input_esdl.decode()
-        output_esdl = WORKER_TASK_FUNCTION(input_esdl, task_util.update_progress)
+        # TODO retrieve config as an input argument from Celery.
+        #  See https://github.com/Project-OMOTES/omotes-sdk-python/issues/3
+        workflow_config: Dict[str, str] = {}
+        output_esdl = WORKER_TASK_FUNCTION(input_esdl, workflow_config, task_util.update_progress)
 
         task_util.update_progress(1.0, "Calculation finished.")
         result_message = TaskResult(
@@ -135,7 +138,7 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[str, UpdateProgressHandler], str]
+WorkerTaskF = Callable[[str, Dict[str, str], UpdateProgressHandler], str]
 
 WORKER: Worker = None  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # noqa
