@@ -26,5 +26,6 @@ class PostgreSQLConfig:
 class WorkerConfig:
     rabbitmq: RabbitMQConfig = RabbitMQConfig()
     postgresql: PostgreSQLConfig = PostgreSQLConfig()
-    task_event_queue_name: str = os.environ.get("TASK_EVENT_QUEUE_NAME", "omotes_task_events")
+    task_result_queue_name: str = os.environ.get("TASK_RESULT_QUEUE_NAME", "omotes_task_result_events")
+    task_progress_queue_name: str = os.environ.get("TASK_PROGRESS_QUEUE_NAME", "omotes_task_progress_events")
     log_level: str = os.environ.get("LOG_LEVEL", "INFO")
