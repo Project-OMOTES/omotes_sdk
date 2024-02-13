@@ -53,7 +53,7 @@ class WorkerTask(CeleryTask):
         #  error is published to logs. SDK wouldn't be notified otherwise.
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes) -> None:
+def wrapped_worker_task(task: WorkerTask, job_id: uuid4, encoded_input_esdl: bytes) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -63,22 +63,29 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes) -> 
 
     :param task:
     :param job_id:
-    :param esdl_string:
+    :param encoded_input_esdl:
     """
-    with BrokerInterface(config=WORKER.config.rabbitmq) as broker_if:
-        # global logging_string
-        # logging_string = io.StringIO()
-        logger.info("GROW worker started new task %s", job_id)
+    with BrokerInterface(config=WORKER.config.rabbitmq_config) as broker_if:
+        # captured_logging_string = io.StringIO()
+        logger.info("Worker started new task %s", job_id)
 
         task_util = TaskUtil(job_id, task, broker_if)
         task_util.update_progress(0, "Job calculation started")
-
-        result = WORKER_TASK_FUNCTION(task, job_id, esdl_string, task_util.update_progress)
+        input_esdl = encoded_input_esdl.decode()
+        output_esdl = WORKER_TASK_FUNCTION(input_esdl, task_util.update_progress)
 
         task_util.update_progress(1.0, "Calculation finished.")
+        result_message = TaskResult(
+            job_id=str(job_id),
+            celery_task_id=task.request.id,
+            celery_task_type=WORKER_TASK_TYPE,
+            result_type=TaskResult.ResultType.SUCCEEDED,
+            output_esdl=output_esdl.encode(),
+            logs="",  # TODO captured_logging_string.getvalue(),
+        )
         broker_if.send_message_to(
             WORKER.config.task_result_queue_name,
-            result.SerializeToString(),
+            result_message.SerializeToString(),
         )
 
 
@@ -90,11 +97,10 @@ class Worker:
     celery_worker: CeleryWorker
 
     def start(self):
-        config = self.config
+        rabbitmq_config = self.config.rabbitmq_config
         self.celery_app = Celery(
-            "omotes",
-            broker=f"amqp://{config.rabbitmq.username}:{config.rabbitmq.password}@{config.rabbitmq.host}:{config.rabbitmq.port}/{config.rabbitmq.virtual_host}",
-            # backend=f"db+postgresql://{config.postgresql.username}:{config.postgresql.password}@{config.postgresql.host}:{config.postgresql.port}/{config.postgresql.database}",
+            broker=f"amqp://{rabbitmq_config.username}:{rabbitmq_config.password}@"
+            f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
         )
 
         # Config of celery app
@@ -110,18 +116,18 @@ class Worker:
 
         self.celery_app.task(wrapped_worker_task, base=WorkerTask, name=WORKER_TASK_TYPE, bind=True)
 
-        logger.info("Starting GROW worker to work on task %s", WORKER_TASK_TYPE)
+        logger.info("Starting Worker to work on task %s", WORKER_TASK_TYPE)
         logger.info(
             "Connected to broker rabbitmq (%s:%s/%s) as %s",
-            config.rabbitmq.host,
-            config.rabbitmq.port,
-            config.rabbitmq.virtual_host,
-            config.rabbitmq.username,
+            rabbitmq_config.host,
+            rabbitmq_config.port,
+            rabbitmq_config.virtual_host,
+            rabbitmq_config.username,
         )
 
         self.celery_worker = self.celery_app.Worker(
             hostname=f"worker-{WORKER_TASK_TYPE}@{socket.gethostname()}",
-            log_level=logging.getLevelName(config.log_level),
+            log_level=logging.getLevelName(self.config.log_level),
             autoscale=(1, 1),
         )
 
@@ -129,7 +135,7 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[WorkerTask, uuid4, bytes, UpdateProgressHandler], TaskResult]
+WorkerTaskF = Callable[[str, UpdateProgressHandler], str]
 
 WORKER: Worker = None  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # noqa
