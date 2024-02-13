@@ -25,14 +25,22 @@ class TaskUtil:
         self.broker_if = broker_if
 
     def update_progress(self, fraction: float, message: str) -> None:
+        logger.debug(
+            "Sending progress update. Progress %s for job %s (celery id %s) with message %s",
+            fraction,
+            self.job_id,
+            self.task.request.id,
+            message,
+        )
         self.broker_if.send_message_to(
             WORKER.config.task_progress_queue_name,
             TaskProgressUpdate(
-                job_id=self.job_id,
+                job_id=str(self.job_id),
                 celery_task_id=self.task.request.id,
-                progress=fraction,
+                celery_task_type=WORKER_TASK_TYPE,
+                progress=float(fraction),
                 message=message,
-            )
+            ).SerializeToString(),
         )
 
 
@@ -70,7 +78,7 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes) -> 
         task_util.update_progress(1.0, "Calculation finished.")
         broker_if.send_message_to(
             WORKER.config.task_result_queue_name,
-            result,
+            result.SerializeToString(),
         )
 
 
@@ -119,14 +127,6 @@ class Worker:
 
         self.celery_worker.start()
 
-        logger.info(
-            "Connected to backend postgresql (%s:%s/%s) as %s",
-            config.postgresql.host,
-            config.postgresql.port,
-            config.postgresql.database,
-            config.postgresql.username,
-        )
-
 
 UpdateProgressHandler = Callable[[float, str], None]
 WorkerTaskF = Callable[[WorkerTask, uuid4, bytes, UpdateProgressHandler], TaskResult]
@@ -137,8 +137,8 @@ WORKER_TASK_TYPE: str = None  # noqa
 
 
 def initialize_worker(
-        task_type: str,
-        task_function: WorkerTaskF,
+    task_type: str,
+    task_function: WorkerTaskF,
 ) -> None:
     global WORKER_TASK_FUNCTION, WORKER_TASK_TYPE, WORKER
     WORKER_TASK_TYPE = task_type
