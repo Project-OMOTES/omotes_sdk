@@ -62,8 +62,6 @@ iniconfig==2.0.0
     # via pytest
 isort==5.13.2
     # via omotes-sdk-python (pyproject.toml)
-jsonpickle==3.0.2
-    # via omotes-sdk-python (pyproject.toml)
 kombu==5.3.5
     # via celery
 mccabe==0.7.0
@@ -84,6 +82,7 @@ packaging==23.2
     # via
     #   build
     #   pytest
+    #   setuptools-git-versioning
 pamqp==3.2.1
     # via aiormq
 pathspec==0.12.1
@@ -114,10 +113,14 @@ pytest-cov==4.0.0
     # via omotes-sdk-python (pyproject.toml)
 python-dateutil==2.8.2
     # via celery
+setuptools-git-versioning==1.13.6
+    # via omotes-sdk-python (pyproject.toml)
 six==1.16.0
     # via python-dateutil
 sqlalchemy==2.0.26
     # via celery
+toml==0.10.2
+    # via setuptools-git-versioning
 tomli==2.0.1
     # via
     #   black

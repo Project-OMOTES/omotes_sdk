@@ -56,7 +56,6 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, esdl_string: bytes) -> 
     :param task:
     :param job_id:
     :param esdl_string:
-    :return: Pickled Calculation result
     """
     with BrokerInterface(config=WORKER.config.rabbitmq) as broker_if:
         # global logging_string

@@ -3,7 +3,8 @@ name = "omotes-sdk-python"
 requires-python = ">=3.8.1"
 dynamic = ["version"]
 authors = [
-    { name = "Sebastiaan la Fleur", email = "sebastiaan.lafleur@tno.nl" }
+    { name = "Sebastiaan la Fleur", email = "sebastiaan.lafleur@tno.nl" },
+    { name = "Mark Vrijlandt", email = "mark.vrijlandt@tno.nl" },
 ]
 description = "Python implementation of the OMOTES SDK through jobs which may be submitted, receive status updates for submitted jobs or cancel submitted jobs."
 readme = "README.md"
@@ -26,7 +27,6 @@ dependencies = [
     "omotes-sdk-protocol ~= 0.0.3",
     "celery[sqlalchemy] ~= 5.3.6",
     "psycopg2 ~= 2.9.9",
-    "jsonpickle ~= 3.0.2",
 ]
 
 [project.optional-dependencies]
@@ -43,6 +43,7 @@ dev = [
     "isort==5.13.2",
     "build ~= 1.0.3",
     "mypy-protobuf ~= 3.5.0",
+    "setuptools-git-versioning < 2",
 ]
 
 [project.urls]
