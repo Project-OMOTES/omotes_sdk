@@ -24,7 +24,7 @@ jobs:
       - name: Save venv
         uses: actions/upload-artifact@v4
         with:
-          path: ./.venv.tar
+          path: ./venv.tar
           name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
 
   lint:
