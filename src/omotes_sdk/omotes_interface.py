@@ -38,7 +38,8 @@ class JobSubmissionCallbackHandler:
 
         :param message: Serialized message.
         """
-        job_result = JobResult().ParseFromString(message)
+        job_result = JobResult()
+        job_result.ParseFromString(message)
         self.callback_on_finished(self.job, job_result)
 
     def callback_on_progress_update_wrapped(self, message: bytes) -> None:
@@ -46,7 +47,8 @@ class JobSubmissionCallbackHandler:
 
         :param message: Serialized message.
         """
-        progress_update = JobProgressUpdate().ParseFromString(message)
+        progress_update = JobProgressUpdate()
+        progress_update.ParseFromString(message)
         if self.callback_on_progress_update:
             self.callback_on_progress_update(self.job, progress_update)
 
@@ -55,7 +57,8 @@ class JobSubmissionCallbackHandler:
 
         :param message: Serialized message.
         """
-        status_update = JobStatusUpdate().ParseFromString(message)
+        status_update = JobStatusUpdate()
+        status_update.ParseFromString(message)
         if self.callback_on_status_update:
             self.callback_on_status_update(self.job, status_update)
 

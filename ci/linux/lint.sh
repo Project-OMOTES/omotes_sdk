@@ -1,4 +1,6 @@
-#!/usr/bin/env sh
+#!/bin/bash
 
-. .venv/bin/activate
+if [[ "$OSTYPE" != "win32" && "$OSTYPE" != "msys" ]]; then
+  . .venv/bin/activate
+fi
 flake8 ./src/omotes_sdk

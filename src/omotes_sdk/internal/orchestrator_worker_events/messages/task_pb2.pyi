@@ -35,11 +35,13 @@ class TaskResult(google.protobuf.message.Message):
 
     JOB_ID_FIELD_NUMBER: builtins.int
     CELERY_TASK_ID_FIELD_NUMBER: builtins.int
+    CELERY_TASK_TYPE_FIELD_NUMBER: builtins.int
     RESULT_TYPE_FIELD_NUMBER: builtins.int
     OUTPUT_ESDL_FIELD_NUMBER: builtins.int
     LOGS_FIELD_NUMBER: builtins.int
     job_id: builtins.str
     celery_task_id: builtins.str
+    celery_task_type: builtins.str
     result_type: global___TaskResult.ResultType.ValueType
     output_esdl: builtins.bytes
     logs: builtins.str
@@ -48,12 +50,13 @@ class TaskResult(google.protobuf.message.Message):
         *,
         job_id: builtins.str = ...,
         celery_task_id: builtins.str = ...,
+        celery_task_type: builtins.str = ...,
         result_type: global___TaskResult.ResultType.ValueType = ...,
         output_esdl: builtins.bytes | None = ...,
         logs: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_output_esdl", b"_output_esdl", "output_esdl", b"output_esdl"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_output_esdl", b"_output_esdl", "celery_task_id", b"celery_task_id", "job_id", b"job_id", "logs", b"logs", "output_esdl", b"output_esdl", "result_type", b"result_type"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_output_esdl", b"_output_esdl", "celery_task_id", b"celery_task_id", "celery_task_type", b"celery_task_type", "job_id", b"job_id", "logs", b"logs", "output_esdl", b"output_esdl", "result_type", b"result_type"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_output_esdl", b"_output_esdl"]) -> typing_extensions.Literal["output_esdl"] | None: ...
 
 global___TaskResult = TaskResult
@@ -64,10 +67,12 @@ class TaskProgressUpdate(google.protobuf.message.Message):
 
     JOB_ID_FIELD_NUMBER: builtins.int
     CELERY_TASK_ID_FIELD_NUMBER: builtins.int
+    CELERY_TASK_TYPE_FIELD_NUMBER: builtins.int
     PROGRESS_FIELD_NUMBER: builtins.int
     MESSAGE_FIELD_NUMBER: builtins.int
     job_id: builtins.str
     celery_task_id: builtins.str
+    celery_task_type: builtins.str
     progress: builtins.float
     message: builtins.str
     def __init__(
@@ -75,9 +80,10 @@ class TaskProgressUpdate(google.protobuf.message.Message):
         *,
         job_id: builtins.str = ...,
         celery_task_id: builtins.str = ...,
+        celery_task_type: builtins.str = ...,
         progress: builtins.float = ...,
         message: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["celery_task_id", b"celery_task_id", "job_id", b"job_id", "message", b"message", "progress", b"progress"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["celery_task_id", b"celery_task_id", "celery_task_type", b"celery_task_type", "job_id", b"job_id", "message", b"message", "progress", b"progress"]) -> None: ...
 
 global___TaskProgressUpdate = TaskProgressUpdate
