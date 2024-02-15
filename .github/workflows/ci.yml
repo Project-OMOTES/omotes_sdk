@@ -38,6 +38,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        path: ./.venv/
     - name: run unit tests
       run: |
         ./ci/linux/lint.sh
@@ -55,6 +56,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        path: ./.venv/
     - name: run unit tests
       run: |
         ./ci/linux/test_unit.sh
@@ -95,6 +97,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        path: ./.venv/
     - name: Add mypy annotator
       uses: pr-annotators/mypy-pr-annotator@v1.0.0
 
@@ -115,6 +118,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        path: ./.venv/
     - name: build
       run: |
         ./ci/linux/build_python_package.sh
