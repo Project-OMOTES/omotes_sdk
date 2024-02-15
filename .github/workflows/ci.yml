@@ -19,10 +19,12 @@ jobs:
       - run: |
           ./ci/linux/create_venv.sh
           ./ci/linux/install_dependencies.sh
+      - name: 'Tar venv'
+        run: tar -cvf venv.tar ./.venv/
       - name: Save venv
         uses: actions/upload-artifact@v4
         with:
-          path: ./.venv/
+          path: ./.venv.tar
           name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
 
   lint:
@@ -38,7 +40,8 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
-        path: ./.venv/
+    - name: Untar venv
+      run: tar -xvf venv.tar
     - name: run unit tests
       run: |
         ./ci/linux/lint.sh
@@ -56,7 +59,8 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
-        path: ./.venv/
+    - name: Untar venv
+      run: tar -xvf venv.tar
     - name: run unit tests
       run: |
         ./ci/linux/test_unit.sh
@@ -97,7 +101,8 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
-        path: ./.venv/
+    - name: Untar venv
+      run: tar -xvf venv.tar
     - name: Add mypy annotator
       uses: pr-annotators/mypy-pr-annotator@v1.0.0
 
@@ -118,7 +123,8 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
-        path: ./.venv/
+    - name: Untar venv
+      run: tar -xvf venv.tar
     - name: build
       run: |
         ./ci/linux/build_python_package.sh
