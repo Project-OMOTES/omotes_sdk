@@ -20,10 +20,10 @@ jobs:
           ./ci/linux/create_venv.sh
           ./ci/linux/install_dependencies.sh
       - name: Save venv
-        uses: actions/cache/save@v4
+        uses: actions/upload-artifact@v4
         with:
           path: ./.venv/
-          key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+          name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
 
   lint:
     name: Lint
@@ -35,10 +35,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Restore venv
-      uses: actions/cache/restore@v4
+      uses: actions/download-artifact@v4
       with:
-        path: ./.venv
-        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: run unit tests
       run: |
         ./ci/linux/lint.sh
@@ -53,10 +52,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Restore venv
-      uses: actions/cache/restore@v4
+      uses: actions/download-artifact@v4
       with:
-        path: ./.venv
-        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: run unit tests
       run: |
         ./ci/linux/test_unit.sh
@@ -94,10 +92,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Restore venv
-      uses: actions/cache/restore@v4
+      uses: actions/download-artifact@v4
       with:
-        path: ./.venv
-        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: Add mypy annotator
       uses: pr-annotators/mypy-pr-annotator@v1.0.0
 
@@ -115,10 +112,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Restore venv
-      uses: actions/cache/restore@v4
+      uses: actions/download-artifact@v4
       with:
-        path: ./.venv
-        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+        name: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: build
       run: |
         ./ci/linux/build_python_package.sh
