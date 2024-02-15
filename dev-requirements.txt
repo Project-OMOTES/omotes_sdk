@@ -20,8 +20,6 @@ black==22.1.0
     # via omotes-sdk-python (pyproject.toml)
 build==1.0.3
     # via omotes-sdk-python (pyproject.toml)
-bump2version==1.0.1
-    # via omotes-sdk-python (pyproject.toml)
 celery==5.3.6
     # via omotes-sdk-python (pyproject.toml)
 click==8.1.7
@@ -43,9 +41,15 @@ exceptiongroup==1.2.0
     # via pytest
 flake8==6.1.0
     # via
+    #   flake8-docstrings
     #   flake8-pyproject
+    #   flake8-quotes
     #   omotes-sdk-python (pyproject.toml)
+flake8-docstrings==1.7.0
+    # via omotes-sdk-python (pyproject.toml)
 flake8-pyproject==1.2.3
+    # via omotes-sdk-python (pyproject.toml)
+flake8-quotes==3.3.2
     # via omotes-sdk-python (pyproject.toml)
 idna==3.6
     # via yarl
@@ -92,6 +96,8 @@ protobuf==4.25.2
     #   omotes-sdk-protocol
 pycodestyle==2.11.1
     # via flake8
+pydocstyle==6.3.0
+    # via flake8-docstrings
 pyflakes==3.1.0
     # via flake8
 pyproject-hooks==1.0.0
@@ -108,6 +114,8 @@ setuptools-git-versioning==1.13.6
     # via omotes-sdk-python (pyproject.toml)
 six==1.16.0
     # via python-dateutil
+snowballstemmer==2.2.0
+    # via pydocstyle
 toml==0.10.2
     # via setuptools-git-versioning
 tomli==2.0.1

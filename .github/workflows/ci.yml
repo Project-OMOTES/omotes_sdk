@@ -11,18 +11,19 @@ jobs:
         python-version: [ "3.8", "3.11" ]
     name: Lint
     steps:
-      - name: Check out source repository
-        uses: actions/checkout@v3
-      - name: Set up Python environment
-        uses: actions/setup-python@v4
-        with:
-          fetch-depth: 0
-          python-version: ${{ matrix.python-version }}
-      - name: flake8 Lint
-        uses: TrueBrain/actions-flake8@v2
-        with:
-          plugins: Flake8-pyproject==1.2.3 flake8-docstrings==1.7.0 flake8-quotes==3.3.2
-          # only_warn: 1  #causes action to always be succesful, but still provide annotations
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    - run: |
+        ./ci/linux/create_venv.sh
+        ./ci/linux/install_dependencies.sh
+
+    - name: run unit tests
+      run: |
+        ./ci/linux/lint.sh
 
   test:
     runs-on: ubuntu-latest

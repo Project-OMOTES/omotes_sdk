@@ -15,7 +15,6 @@
 
 """Test script for python template."""
 import uuid
-from datetime import datetime
 import unittest
 from unittest.mock import Mock
 
