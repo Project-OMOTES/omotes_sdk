@@ -24,13 +24,13 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.3.1",
-    "omotes-sdk-protocol ~= 0.0.4",
+    "omotes-sdk-protocol ~= 0.0.5",
     "celery ~= 5.3.6",
 ]
 
 [project.optional-dependencies]
 dev = [
-    #"pip-tools~=6.13.0",  # Installed via create_env script
+    "pip-tools~=7.3.0",
     "setuptools ~= 69.0.3",
     "black ~= 22.1.0",
     "flake8 ~= 6.1.0",

@@ -3,45 +3,60 @@ name: Build-Test-Lint-etc (linux)
 on: [push]
 
 jobs:
-
-  flake8-lint:
+  setup:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [ "3.8", "3.11" ]
+    name: Setup
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+      - run: |
+          ./ci/linux/create_venv.sh
+          ./ci/linux/install_dependencies.sh
+      - name: Save venv
+        uses: actions/cache/save@v4
+        with:
+          path: ./.venv/
+          key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+
+  lint:
     name: Lint
+    runs-on: ubuntu-latest
+    needs: [ setup ]
+    strategy:
+      matrix:
+        python-version: [ "3.8", "3.11" ]
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - name: Restore venv
+      uses: actions/cache/restore@v4
       with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    - run: |
-        ./ci/linux/create_venv.sh
-        ./ci/linux/install_dependencies.sh
-
+        path: ./.venv
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: run unit tests
       run: |
         ./ci/linux/lint.sh
 
   test:
+    name: Test
     runs-on: ubuntu-latest
+    needs: [ setup ]
     strategy:
       matrix:
         python-version: ["3.8", "3.11"]
-#        python-version: [3.8, 3.9, 3.10, 3.11]
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - name: Restore venv
+      uses: actions/cache/restore@v4
       with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    - run: |
-        ./ci/linux/create_venv.sh
-        ./ci/linux/install_dependencies.sh
-
+        path: ./.venv
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: run unit tests
       run: |
         ./ci/linux/test_unit.sh
@@ -70,22 +85,19 @@ jobs:
         fail-on-empty: true
 
   typecheck:
+    name: Typecheck
     runs-on: ubuntu-latest
+    needs: [ setup ]
     strategy:
       matrix:
         python-version: ["3.8", "3.11"]
-#        python-version: [3.8, 3.9, 3.10, 3.11]
     steps:
     - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+    - name: Restore venv
+      uses: actions/cache/restore@v4
       with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    - run: |
-        ./ci/linux/create_venv.sh
-        ./ci/linux/install_dependencies.sh
-
+        path: ./.venv
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
     - name: Add mypy annotator
       uses: pr-annotators/mypy-pr-annotator@v1.0.0
 
@@ -94,22 +106,19 @@ jobs:
         ./ci/linux/typecheck.sh
 
   build:
-    name: Build the python package
+    name: Build
+    needs: [ setup ]
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [ "3.8", "3.11" ]
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-      - run: |
-          ./ci/linux/create_venv.sh
-          ./ci/linux/install_dependencies.sh
-
-      - name: build
-        run: |
-          ./ci/linux/build_python_package.sh
+    - uses: actions/checkout@v3
+    - name: Restore venv
+      uses: actions/cache/restore@v4
+      with:
+        path: ./.venv
+        key: ${{ runner.os }}-python-${{ matrix.python-version }}-venv-${{github.run_id}}
+    - name: build
+      run: |
+        ./ci/linux/build_python_package.sh
