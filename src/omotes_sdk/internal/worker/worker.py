@@ -1,9 +1,10 @@
 import io
 import logging
 import socket
-from typing import Callable, Dict
-from uuid import uuid4
+from typing import Callable, Dict, List, Any
+from uuid import UUID
 
+from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
 from kombu import Queue as KombuQueue
@@ -19,7 +20,7 @@ logger = logging.getLogger("omotes_sdk_internal")
 
 
 class TaskUtil:
-    def __init__(self, job_id: uuid4, task: CeleryTask, broker_if: BrokerInterface):
+    def __init__(self, job_id: UUID, task: CeleryTask, broker_if: BrokerInterface):
         self.job_id = job_id
         self.task = task
         self.broker_if = broker_if
@@ -45,7 +46,14 @@ class TaskUtil:
 
 
 class WorkerTask(CeleryTask):
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
+    def on_failure(
+        self,
+        exc: Exception,
+        task_id: str,
+        args: List[Any],
+        kwargs: Dict[str, Any],
+        einfo: ExceptionInfo,
+    ) -> None:
         super().on_failure(exc, task_id, args, kwargs, einfo)
         logger.error("Failure detected for celery task %s", task_id)
         # TODO Entrypoint to notify orchestrator & sdk of failure of task. At least in case where
@@ -53,7 +61,7 @@ class WorkerTask(CeleryTask):
         #  error is published to logs. SDK wouldn't be notified otherwise.
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: uuid4, encoded_input_esdl: bytes) -> None:
+def wrapped_worker_task(task: WorkerTask, job_id: UUID, encoded_input_esdl: bytes) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -99,7 +107,7 @@ class Worker:
     celery_app: Celery
     celery_worker: CeleryWorker
 
-    def start(self):
+    def start(self) -> None:
         rabbitmq_config = self.config.rabbitmq_config
         self.celery_app = Celery(
             broker=f"amqp://{rabbitmq_config.username}:{rabbitmq_config.password}@"
@@ -140,9 +148,9 @@ class Worker:
 UpdateProgressHandler = Callable[[float, str], None]
 WorkerTaskF = Callable[[str, Dict[str, str], UpdateProgressHandler], str]
 
-WORKER: Worker = None  # noqa
-WORKER_TASK_FUNCTION: WorkerTaskF = None  # noqa
-WORKER_TASK_TYPE: str = None  # noqa
+WORKER: Worker = None  # type: ignore [assignment]  # noqa
+WORKER_TASK_FUNCTION: WorkerTaskF = None  # type: ignore [assignment]  # noqa
+WORKER_TASK_TYPE: str = None  # type: ignore [assignment]  # noqa
 
 
 def initialize_worker(

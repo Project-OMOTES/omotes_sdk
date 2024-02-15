@@ -59,6 +59,9 @@ requires = [
     "setuptools-git-versioning<2",
 ]
 
+[tool.setuptools.package-data]
+"omotes_sdk" = ["py.typed"]
+
 [tool.setuptools-git-versioning]
 enabled = true
 
@@ -69,7 +72,12 @@ addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fa
 source = ["src"]
 
 [tool.flake8]
-exclude = ['.venv/*', 'venv/*', 'doc/*']
+exclude = [
+    '.venv/*',
+    'venv/*',
+    'doc/*',
+    'src/omotes_sdk/internal/orchestrator_worker_events/messages/*'
+]
 ignore = ['Q000', 'D401', 'W503']
 per-file-ignores = ['__init__.py:F401', 'test_main.py:D100,D101,D102,D103']
 max-line-length = 100
@@ -93,4 +101,16 @@ exclude = ['.venv/*', 'venv/*', 'doc/*', 'ci/*']
 [[tool.mypy.overrides]]
 module = "unit_test.*"
 check_untyped_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "kombu.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "billiard.*"
 ignore_missing_imports = true

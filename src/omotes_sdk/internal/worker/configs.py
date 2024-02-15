@@ -14,7 +14,7 @@ class WorkerConfig:
     task_progress_queue_name: str
     log_level: str
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.rabbitmq_config = EnvRabbitMQConfig()
         self.task_result_queue_name = os.environ.get(
             "TASK_RESULT_QUEUE_NAME", "omotes_task_result_events"

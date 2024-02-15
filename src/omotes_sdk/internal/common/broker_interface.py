@@ -5,7 +5,8 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from functools import partial
 import threading
-from typing import Callable, Optional, Set, Dict
+from types import TracebackType
+from typing import Callable, Optional, Set, Dict, Type
 
 from aio_pika import connect_robust, Message
 from aio_pika.abc import AbstractRobustConnection, AbstractChannel, AbstractQueue
@@ -62,7 +63,7 @@ class QueueSingleMessageConsumer:
         )
         async with self.queue.iterator() as queue_iter:
             try:
-                message = await asyncio.wait_for(anext(queue_iter), timeout=self.timeout)
+                message = await asyncio.wait_for(queue_iter.__anext__(), timeout=self.timeout)
             except TimeoutError:
                 if self.callback_on_no_message:
                     asyncio.get_running_loop().run_in_executor(None, self.callback_on_no_message)
@@ -112,11 +113,16 @@ class BrokerInterface(threading.Thread):
         self._stopping = False
         self._stopped = False
 
-    def __enter__(self):
+    def __enter__(self) -> "BrokerInterface":
         self.start()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.stop()
 
     async def _send_message_to(self, queue_name: str, message: bytes) -> None:
@@ -208,6 +214,7 @@ class BrokerInterface(threading.Thread):
             password=self.config.password,
             virtualhost=self.config.virtual_host,
             loop=self._loop,
+            fail_fast=False,
         )
         self._channel = await self._connection.channel()
         await self._channel.set_qos(prefetch_count=1)
