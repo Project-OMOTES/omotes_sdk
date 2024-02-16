@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class RabbitMQConfig:
-    """Configuration for connect to RabbitMQ"""
+    """Configuration for connect to RabbitMQ."""
 
     host: str = "localhost"
     """RabbitMQ hostname"""

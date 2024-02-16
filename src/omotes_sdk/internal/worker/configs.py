@@ -9,12 +9,22 @@ from omotes_sdk.internal.common.config import (
 
 @dataclass
 class WorkerConfig:
+    """Base configuration for an OMOTES Worker.
+
+    Values are retrieved from environment variables.
+    """
+
     rabbitmq_config: RabbitMQConfig
+    """How to connect to the OMOTES Celery RabbitMQ."""
     task_result_queue_name: str
+    """Name of the queue to which the task result should be send."""
     task_progress_queue_name: str
+    """Name of the queue to which progress updates for the task should be send."""
     log_level: str
+    """Log level for any logging in the worker."""
 
     def __init__(self) -> None:
+        """Create the worker config and retrieve values from environment variables."""
         self.rabbitmq_config = EnvRabbitMQConfig()
         self.task_result_queue_name = os.environ.get(
             "TASK_RESULT_QUEUE_NAME", "omotes_task_result_events"

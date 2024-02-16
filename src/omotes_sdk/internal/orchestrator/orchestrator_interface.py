@@ -15,10 +15,23 @@ logger = logging.getLogger("omotes_sdk_internal")
 
 @dataclass
 class JobSubmissionCallbackHandler:
+    """Handler to setup and around callbacks associated with receiving a submitted job.
+
+    A `JobSubmissionCallbackHandler` is created per job submission queue.
+    """
+
     workflow_type: WorkflowType
+    """Messages received from this job submission queue are expected to have this workflow type."""
     callback_on_new_job: Callable[[JobSubmission, Job], None]
+    """Callback to handle any jobs that are submitted."""
 
     def callback_on_new_job_wrapped(self, message: bytes) -> None:
+        """Prepare the `Job` and `JobSubmission` messages before passing them to the callback.
+
+        Expected workflow type is confirmed before passing it to handler.
+
+        :param message: Serialized AMQP message containing a new job submission.
+        """
         submitted_job = JobSubmission()
         submitted_job.ParseFromString(message)
 
@@ -36,24 +49,39 @@ class JobSubmissionCallbackHandler:
 
 
 class OrchestratorInterface:
+    """RabbitMQ interface specifically for the orchestrator."""
+
     broker_if: BrokerInterface
+    """Interface to RabbitMQ."""
     workflow_type_manager: WorkflowTypeManager
+    """All available workflow types."""
 
     def __init__(
         self, omotes_rabbitmq_config: RabbitMQConfig, workflow_type_manager: WorkflowTypeManager
     ):
+        """Create the orchestrator interface.
+
+        :param omotes_rabbitmq_config: How to connect to RabbitMQ as the orchestrator.
+        :param workflow_type_manager: All available workflow types.
+        """
         self.broker_if = BrokerInterface(omotes_rabbitmq_config)
         self.workflow_type_manager = workflow_type_manager
 
     def start(self) -> None:
+        """Start the orchestrator interface."""
         self.broker_if.start()
 
     def stop(self) -> None:
+        """Stop the orchestrator interface."""
         self.broker_if.stop()
 
     def connect_to_job_submissions(
         self, callback_on_new_job: Callable[[JobSubmission, Job], None]
     ) -> None:
+        """Connect to the job submission queue for each workflow type.
+
+        :param callback_on_new_job: Callback to handle any new job submission.
+        """
         for workflow_type in self.workflow_type_manager.possible_workflows:
             callback_handler = JobSubmissionCallbackHandler(workflow_type, callback_on_new_job)
             self.broker_if.add_queue_subscription(
@@ -62,16 +90,31 @@ class OrchestratorInterface:
             )
 
     def send_job_progress_update(self, job: Job, progress_update: JobProgressUpdate) -> None:
+        """Send a job progress update to the SDK.
+
+        :param job: Job handle for which a progress update is send.
+        :param progress_update: Current progress for the job.
+        """
         self.broker_if.send_message_to(
             OmotesQueueNames.job_progress_queue_name(job), progress_update.SerializeToString()
         )
 
     def send_job_status_update(self, job: Job, status_update: JobStatusUpdate) -> None:
+        """Send a job status update to the SDK.
+
+        :param job: Job handle for which a status update is send.
+        :param status_update: Current status for the job.
+        """
         self.broker_if.send_message_to(
             OmotesQueueNames.job_status_queue_name(job), status_update.SerializeToString()
         )
 
     def send_job_result(self, job: Job, result: JobResult) -> None:
+        """Send the job result to the SDK.
+
+        :param job: Job to which the result belongs.
+        :param result: The job result.
+        """
         self.broker_if.send_message_to(
             OmotesQueueNames.job_results_queue_name(job), result.SerializeToString()
         )
