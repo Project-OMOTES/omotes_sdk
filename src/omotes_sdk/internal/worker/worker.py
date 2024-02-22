@@ -91,7 +91,7 @@ class WorkerTask(CeleryTask):
         #  error is published to logs. SDK wouldn't be notified otherwise.
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: UUID, encoded_input_esdl: bytes) -> None:
+def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -101,7 +101,7 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, encoded_input_esdl: byte
 
     :param task: Reference to the CeleryTask.
     :param job_id: Id of the job this task belongs to.
-    :param encoded_input_esdl: UTF-8 encoded ESDL description which needs to be processed.
+    :param input_esdl: ESDL description which needs to be processed.
     """
     with BrokerInterface(config=WORKER.config.rabbitmq_config) as broker_if:
         # captured_logging_string = io.StringIO()
@@ -109,7 +109,6 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, encoded_input_esdl: byte
 
         task_util = TaskUtil(job_id, task, broker_if)
         task_util.update_progress(0, "Job calculation started")
-        input_esdl = encoded_input_esdl.decode()
         # TODO retrieve config as an input argument from Celery.
         #  See https://github.com/Project-OMOTES/omotes-sdk-python/issues/3
         workflow_config: Dict[str, str] = {}
