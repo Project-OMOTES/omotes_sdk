@@ -121,7 +121,7 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, encoded_input_esdl: byte
             celery_task_id=task.request.id,
             celery_task_type=WORKER_TASK_TYPE,
             result_type=TaskResult.ResultType.SUCCEEDED,
-            output_esdl=output_esdl.encode(),
+            output_esdl=output_esdl,
             logs="",  # TODO captured_logging_string.getvalue(),
         )
         broker_if.send_message_to(

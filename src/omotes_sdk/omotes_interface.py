@@ -33,7 +33,7 @@ class JobSubmissionCallbackHandler:
     callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]]
     """Handler which is called on a job status update."""
     auto_disconnect_on_result_handler: Optional[Callable[[Job], None]]
-    """Handler to remove/disconnect from all queues pertaining to this job once the result is 
+    """Handler to remove/disconnect from all queues pertaining to this job once the result is
     received and handled without exceptions through `callback_on_finished`."""
 
     def callback_on_finished_wrapped(self, message: bytes) -> None:
@@ -97,7 +97,6 @@ class OmotesInterface:
 
         :param job: Job to disconnect from.
         """
-
         self.broker_if.remove_queue_next_message_subscription(
             OmotesQueueNames.job_results_queue_name(job)
         )
@@ -195,7 +194,7 @@ class OmotesInterface:
             uuid=str(job.id),
             timeout_ms=timeout_ms,
             workflow_type=workflow_type.workflow_type_name,
-            esdl=esdl.encode(),
+            esdl=esdl,
         )
         self.broker_if.send_message_to(
             OmotesQueueNames.job_submission_queue_name(workflow_type),

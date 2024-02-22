@@ -8,8 +8,13 @@ import threading
 from types import TracebackType
 from typing import Callable, Optional, Dict, Type
 
-from aio_pika import connect_robust, Message, IncomingMessage
-from aio_pika.abc import AbstractRobustConnection, AbstractChannel, AbstractQueue
+from aio_pika import connect_robust, Message
+from aio_pika.abc import (
+    AbstractRobustConnection,
+    AbstractChannel,
+    AbstractQueue,
+    AbstractIncomingMessage,
+)
 
 from omotes_sdk.config import RabbitMQConfig
 
@@ -32,8 +37,8 @@ class QueueSubscriptionConsumer:
         function which is executed from the executor threadpool.
         """
         async with self.queue.iterator() as queue_iter:
+            message: AbstractIncomingMessage
             async for message in queue_iter:
-                message: IncomingMessage
                 async with message.process(requeue=True):
                     logger.debug(
                         "Received with queue subscription on queue %s: %s",
