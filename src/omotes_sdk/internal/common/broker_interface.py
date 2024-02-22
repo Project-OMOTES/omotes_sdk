@@ -6,9 +6,9 @@ from dataclasses import dataclass
 from functools import partial
 import threading
 from types import TracebackType
-from typing import Callable, Optional, Set, Dict, Type
+from typing import Callable, Optional, Dict, Type
 
-from aio_pika import connect_robust, Message
+from aio_pika import connect_robust, Message, IncomingMessage
 from aio_pika.abc import AbstractRobustConnection, AbstractChannel, AbstractQueue
 
 from omotes_sdk.config import RabbitMQConfig
@@ -33,6 +33,7 @@ class QueueSubscriptionConsumer:
         """
         async with self.queue.iterator() as queue_iter:
             async for message in queue_iter:
+                message: IncomingMessage
                 async with message.process(requeue=True):
                     logger.debug(
                         "Received with queue subscription on queue %s: %s",
@@ -108,10 +109,10 @@ class BrokerInterface(threading.Thread):
     """AMQP channel."""
     _queue_subscription_consumer_by_name: Dict[str, QueueSubscriptionConsumer]
     """Task to consume messages when they are received ordered by queue name."""
-    _queue_subscription_tasks: Set[Task]
-    """Reference to the queue subscription task """
-    _queue_retrieve_next_message_tasks: Set[Task]
-    """Reference to the queue next message task """
+    _queue_subscription_tasks: Dict[str, Task]
+    """Reference to the queue subscription task by queue name."""
+    _queue_retrieve_next_message_tasks: Dict[str, Task]
+    """Reference to the queue next message task by queue name."""
     _ready_for_processing: threading.Event
     """Thread-safe check which is set once the AMQP connection is up and running."""
     _stopping_lock: threading.Lock
@@ -130,8 +131,8 @@ class BrokerInterface(threading.Thread):
         self.config = config
 
         self._queue_subscription_consumer_by_name = {}
-        self._queue_subscription_tasks = set()
-        self._queue_retrieve_next_message_tasks = set()
+        self._queue_subscription_tasks = {}
+        self._queue_retrieve_next_message_tasks = {}
         self._ready_for_processing = threading.Event()
         self._stopping_lock = threading.Lock()
         self._stopping = False
@@ -172,15 +173,25 @@ class BrokerInterface(threading.Thread):
             )
             raise RuntimeError(f"Queue subscription for {queue_name} already exists.")
         logger.info("Declaring queue and adding subscription to %s", queue_name)
-        queue = await self._channel.declare_queue(queue_name)
+        queue = await self._channel.declare_queue(queue_name, durable=True, auto_delete=False)
         queue_consumer = QueueSubscriptionConsumer(queue, callback_on_message)
         self._queue_subscription_consumer_by_name[queue_name] = queue_consumer
 
         queue_subscription_task = asyncio.create_task(queue_consumer.run())
         queue_subscription_task.add_done_callback(
-            partial(self._remove_queue_subscription_task, queue_name, queue_subscription_task)
+            partial(self._remove_queue_subscription_task, queue_name)
         )
-        self._queue_subscription_tasks.add(queue_subscription_task)
+        self._queue_subscription_tasks[queue_name] = queue_subscription_task
+
+    async def _remove_queue_subscription(self, queue_name: str) -> None:
+        """Remove subscription from queue and delete the queue if one exists.
+
+        :param queue_name: Name of the queue to unsubscribe from.
+        """
+        if queue_name in self._queue_subscription_tasks:
+            logger.info("Stopping subscription to %s and remove queue", queue_name)
+            self._queue_subscription_tasks[queue_name].cancel()
+            await self._channel.queue_delete(queue_name)
 
     async def _receive_next_message(
         self,
@@ -198,47 +209,51 @@ class BrokerInterface(threading.Thread):
             within the timeout.
         """
         logger.info("Declaring queue and retrieving the next message to %s", queue_name)
-        queue = await self._channel.declare_queue(queue_name)
+        queue = await self._channel.declare_queue(queue_name, durable=True, auto_delete=False)
         queue_retriever = QueueSingleMessageConsumer(
             queue, timeout, callback_on_message, callback_on_no_message
         )
 
         queue_retriever_task = asyncio.create_task(queue_retriever.run())
         queue_retriever_task.add_done_callback(
-            partial(self._remove_queue_next_message_task, queue_name, queue_retriever_task)
+            partial(self._remove_queue_next_message_task, queue_name)
         )
-        self._queue_retrieve_next_message_tasks.add(queue_retriever_task)
+        self._queue_retrieve_next_message_tasks[queue_name] = queue_retriever_task
 
-    def _remove_queue_subscription_task(
-        self, queue_name: str, queue_subscription_task: Task, future: Future
-    ) -> None:
+    async def _remove_queue_next_message_subscription(self, queue_name: str) -> None:
+        """Remove subscription from queue and delete the queue if one exists.
+
+        :param queue_name: Name of the queue to unsubscribe from.
+        """
+        if queue_name in self._queue_retrieve_next_message_tasks:
+            logger.info("Stop waiting for next message on %s and remove queue", queue_name)
+            self._queue_retrieve_next_message_tasks[queue_name].cancel()
+            await self._channel.queue_delete(queue_name)
+
+    def _remove_queue_subscription_task(self, queue_name: str, future: Future) -> None:
         """Remove the queue subscription from the internal cache.
 
         :param queue_name: Name of the queue to which is subscribed.
-        :param queue_subscription_task: The async task that is running the subscription.
         :param future: Required argument from Task.add_done_callback which also refers to the
             task running the subscription but as a `Future`.
         """
-        if queue_subscription_task in self._queue_subscription_tasks:
+        if queue_name in self._queue_subscription_tasks:
             logger.debug("Queue subscription %s is done. Calling termination callback", queue_name)
             del self._queue_subscription_consumer_by_name[queue_name]
-            self._queue_subscription_tasks.remove(queue_subscription_task)
+            del self._queue_subscription_tasks[queue_name]
 
-    def _remove_queue_next_message_task(
-        self, queue_name: str, queue_retriever_task: Task, future: Future
-    ) -> None:
+    def _remove_queue_next_message_task(self, queue_name: str, future: Future) -> None:
         """Remove the task waiting for next message from queue from the internal cache.
 
         :param queue_name: Name of the queue which is awaiting an new message.
-        :param queue_subscription_task: The async task that is running the subscription.
         :param future: Required argument from Task.add_done_callback which also refers to the
             task running the subscription but as a `Future`.
         """
-        if queue_retriever_task in self._queue_retrieve_next_message_tasks:
+        if queue_name in self._queue_retrieve_next_message_tasks:
             logger.debug(
                 "Waiting for single message on %s is done. Calling termination callback", queue_name
             )
-            self._queue_retrieve_next_message_tasks.remove(queue_retriever_task)
+            del self._queue_retrieve_next_message_tasks[queue_name]
 
     async def _setup_broker_interface(self) -> None:
         """Start the AMQP connection and channel."""
@@ -257,7 +272,7 @@ class BrokerInterface(threading.Thread):
             password=self.config.password,
             virtualhost=self.config.virtual_host,
             loop=self._loop,
-            fail_fast=False,
+            fail_fast="false",  # aiormq requires this to be str and not bool
         )
         self._channel = await self._connection.channel()
         await self._channel.set_qos(prefetch_count=1)
@@ -266,8 +281,8 @@ class BrokerInterface(threading.Thread):
     async def _stop_broker_interface(self) -> None:
         """Cancel all subscriptions, close the channel and the connection."""
         logger.info("Stopping broker interface")
-        tasks_to_cancel = list(self._queue_subscription_tasks) + list(
-            self._queue_retrieve_next_message_tasks
+        tasks_to_cancel = list(self._queue_subscription_tasks.values()) + list(
+            self._queue_retrieve_next_message_tasks.values()
         )
         for queue_task in tasks_to_cancel:
             queue_task.cancel()
@@ -310,6 +325,15 @@ class BrokerInterface(threading.Thread):
             self._add_queue_subscription(queue_name, callback_on_message), self._loop
         ).result()
 
+    def remove_queue_subscription(self, queue_name: str) -> None:
+        """Remove subscription from queue and delete the queue if one exists.
+
+        :param queue_name: Name of the queue to unsubscribe from.
+        """
+        asyncio.run_coroutine_threadsafe(
+            self._remove_queue_subscription(queue_name), self._loop
+        ).result()
+
     def receive_next_message(
         self,
         queue_name: str,
@@ -331,6 +355,15 @@ class BrokerInterface(threading.Thread):
                 queue_name, timeout, callback_on_message, callback_on_no_message
             ),
             self._loop,
+        ).result()
+
+    def remove_queue_next_message_subscription(self, queue_name: str) -> None:
+        """Remove subscription from queue and delete the queue if one exists.
+
+        :param queue_name: Name of the queue to unsubscribe from.
+        """
+        asyncio.run_coroutine_threadsafe(
+            self._remove_queue_next_message_subscription(queue_name), self._loop
         ).result()
 
     def send_message_to(self, queue_name: str, message: bytes) -> None:
