@@ -33,6 +33,9 @@ class JobSubmissionCallbackHandler:
     """Handler which is called on a job progress update."""
     callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]]
     """Handler which is called on a job status update."""
+    auto_disconnect_on_result_handler: Optional[Callable[[Job], None]]
+    """Handler to remove/disconnect from all queues pertaining to this job once the result is
+    received and handled without exceptions through `callback_on_finished`."""
 
     def callback_on_finished_wrapped(self, message: bytes) -> None:
         """Parse a serialized JobResult message and call handler.
@@ -42,6 +45,9 @@ class JobSubmissionCallbackHandler:
         job_result = JobResult()
         job_result.ParseFromString(message)
         self.callback_on_finished(self.job, job_result)
+
+        if self.auto_disconnect_on_result_handler:
+            self.auto_disconnect_on_result_handler(self.job)
 
     def callback_on_progress_update_wrapped(self, message: bytes) -> None:
         """Parse a serialized JobProgressUpdate message and call handler.
@@ -71,6 +77,12 @@ class OmotesInterface:
     """Interface to RabbitMQ broker."""
 
     def __init__(self, rabbitmq_config: RabbitMQConfig):
+        """Create the OMOTES interface.
+
+        NOTE: Needs to be started separately.
+
+        :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
+        """
         self.broker_if = BrokerInterface(rabbitmq_config)
 
     def start(self) -> None:
@@ -81,12 +93,24 @@ class OmotesInterface:
         """Stop any other interfaces."""
         self.broker_if.stop()
 
+    def disconnect_from_submitted_job(self, job: Job) -> None:
+        """Disconnect from the submitted job and delete all queues on the broker.
+
+        :param job: Job to disconnect from.
+        """
+        self.broker_if.remove_queue_next_message_subscription(
+            OmotesQueueNames.job_results_queue_name(job)
+        )
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
+
     def connect_to_submitted_job(
         self,
         job: Job,
         callback_on_finished: Callable[[Job, JobResult], None],
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
+        auto_disconnect_on_result: bool,
     ) -> None:
         """(Re)connect to the running job.
 
@@ -97,9 +121,20 @@ class OmotesInterface:
         :param callback_on_finished: Called when the job has a result.
         :param callback_on_progress_update: Called when there is a progress update for the job.
         :param callback_on_status_update: Called when there is a status update for the job.
+        :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
+        once the result is received and handled without exceptions through `callback_on_finished`.
         """
+        if auto_disconnect_on_result:
+            auto_disconnect_handler = self.disconnect_from_submitted_job
+        else:
+            auto_disconnect_handler = None
+
         callback_handler = JobSubmissionCallbackHandler(
-            job, callback_on_finished, callback_on_progress_update, callback_on_status_update
+            job,
+            callback_on_finished,
+            callback_on_progress_update,
+            callback_on_status_update,
+            auto_disconnect_handler,
         )
 
         self.broker_if.receive_next_message(
@@ -128,6 +163,7 @@ class OmotesInterface:
         callback_on_finished: Callable[[Job, JobResult], None],
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
+        auto_disconnect_on_result: bool,
     ) -> Job:
         """Submit a new job and connect to progress and status updates and the job result.
 
@@ -139,13 +175,19 @@ class OmotesInterface:
             done.
         :param callback_on_progress_update: Callback which is called with any progress updates.
         :param callback_on_status_update: Callback which is called with any status updates.
+        :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
+        once the result is received and handled without exceptions through `callback_on_finished`.
         :return: The job handle which is created. This object needs to be saved persistently by the
             program using this SDK in order to resume listening to jobs in progress after a restart.
         """
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
 
         self.connect_to_submitted_job(
-            job, callback_on_finished, callback_on_progress_update, callback_on_status_update
+            job,
+            callback_on_finished,
+            callback_on_progress_update,
+            callback_on_status_update,
+            auto_disconnect_on_result,
         )
 
         timeout_ms = round(job_timeout.total_seconds() * 1000) if job_timeout else None
@@ -169,7 +211,8 @@ class OmotesInterface:
         """Cancel a job.
 
         If this succeeds or not will be send as a job status update through the
-        `callback_on_status_update` handler.
+        `callback_on_status_update` handler. This method will not disconnect from the submitted job
+        events. This will need to be done separately using `disconnect_from_submitted_job`.
 
         :param job: The job to cancel.
         """

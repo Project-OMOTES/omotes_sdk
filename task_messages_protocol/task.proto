@@ -5,7 +5,7 @@ message TaskResult {
   string celery_task_id = 2;
   string celery_task_type = 6;
   ResultType result_type = 3;
-  optional bytes output_esdl = 4;
+  optional string output_esdl = 4;
   string logs = 5;
 
   enum ResultType {
