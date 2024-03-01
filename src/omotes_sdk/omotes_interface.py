@@ -3,6 +3,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable, Optional
+from google.protobuf.struct_pb2 import Struct
 
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
 from omotes_sdk.config import RabbitMQConfig
@@ -121,7 +122,7 @@ class OmotesInterface:
     def submit_job(
         self,
         esdl: str,
-        job_config: dict,
+        params_dict: dict,
         workflow_type: WorkflowType,
         job_timeout: Optional[timedelta],
         callback_on_finished: Callable[[Job, JobResult], None],
@@ -131,7 +132,7 @@ class OmotesInterface:
         """Submit a new job and connect to progress and status updates and the job result.
 
         :param esdl: String containing the XML that make up the ESDL.
-        :param job_config: Any job-specific configuration parameters.
+        :param params_dict: Any job-specific, non-ESDL, configuration parameters.
         :param workflow_type: Type of the workflow to start.
         :param job_timeout: How long the job may take before it is considered to be timeout.
         :param callback_on_finished: Callback which is called with the job result once the job is
@@ -148,11 +149,14 @@ class OmotesInterface:
         )
 
         timeout_ms = round(job_timeout.total_seconds() * 1000) if job_timeout else None
+        params_dict_struct = Struct()
+        params_dict_struct.update(params_dict)
         job_submission_msg = JobSubmission(
             uuid=str(job.id),
             timeout_ms=timeout_ms,
             workflow_type=workflow_type.workflow_type_name,
-            esdl=esdl.encode(),
+            esdl=esdl,
+            params_dict=params_dict_struct,
         )
         self.broker_if.send_message_to(
             OmotesQueueNames.job_submission_queue_name(workflow_type),
