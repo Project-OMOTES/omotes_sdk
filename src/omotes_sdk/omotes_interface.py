@@ -70,6 +70,12 @@ class OmotesInterface:
     """Interface to RabbitMQ broker."""
 
     def __init__(self, rabbitmq_config: RabbitMQConfig):
+        """Create the OMOTES interface.
+
+        NOTE: Needs to be started separately.
+
+        :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
+        """
         self.broker_if = BrokerInterface(rabbitmq_config)
 
     def start(self) -> None:

@@ -1,9 +1,10 @@
 import io
 import logging
 import socket
-from typing import Callable, Dict
-from uuid import uuid4
+from typing import Callable, Dict, List, Any
+from uuid import UUID
 
+from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
 from kombu import Queue as KombuQueue
@@ -19,12 +20,32 @@ logger = logging.getLogger("omotes_sdk_internal")
 
 
 class TaskUtil:
-    def __init__(self, job_id: uuid4, task: CeleryTask, broker_if: BrokerInterface):
+    """Utilities for a Celery task."""
+
+    job_id: UUID
+    """The id of the job this task belongs to."""
+    task: CeleryTask
+    """Reference to the Celery task which is executed."""
+    broker_if: BrokerInterface
+    """Interface to the OMOTES Celery RabbitMQ."""
+
+    def __init__(self, job_id: UUID, task: CeleryTask, broker_if: BrokerInterface):
+        """Create the task utilities.
+
+        :param job_id: The id of the job this task belongs to.
+        :param task: Reference to the Celery task which is executed.
+        :param broker_if: Interface to the OMOTES Celery RabbitMQ.
+        """
         self.job_id = job_id
         self.task = task
         self.broker_if = broker_if
 
     def update_progress(self, fraction: float, message: str) -> None:
+        """Send a progress update to the orchestrator.
+
+        :param fraction: Value between 0.0 and 1.0 to denote the progress.
+        :param message: Message which explains the current progress of the task.
+        """
         logger.debug(
             "Sending progress update. Progress %s for job %s (celery id %s) with message %s",
             fraction,
@@ -45,7 +66,24 @@ class TaskUtil:
 
 
 class WorkerTask(CeleryTask):
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
+    """Wrapped CeleryTask to connect to a number of CeleryTask events."""
+
+    def on_failure(
+        self,
+        exc: Exception,
+        task_id: str,
+        args: List[Any],
+        kwargs: Dict[str, Any],
+        einfo: ExceptionInfo,
+    ) -> None:
+        """Runs when the CeleryTask fails on an exception.
+
+        :param exc: The exception triggered by the task.
+        :param task_id: Celery task id of the task.
+        :param args: Unnamed arguments passed to the CeleryTask.
+        :param kwargs: Named arguments passed to the CeleryTask.
+        :param einfo: Context information regarding the exception triggered.
+        """
         super().on_failure(exc, task_id, args, kwargs, einfo)
         logger.error("Failure detected for celery task %s", task_id)
         # TODO Entrypoint to notify orchestrator & sdk of failure of task. At least in case where
@@ -53,7 +91,7 @@ class WorkerTask(CeleryTask):
         #  error is published to logs. SDK wouldn't be notified otherwise.
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: uuid4, encoded_input_esdl: bytes) -> None:
+def wrapped_worker_task(task: WorkerTask, job_id: UUID, encoded_input_esdl: bytes) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -61,9 +99,9 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, encoded_input_esdl: byt
     it to be copied to subprocess. Any resources e.g. connections/sockets need to be opened
     in this task by the subprocess.
 
-    :param task:
-    :param job_id:
-    :param encoded_input_esdl:
+    :param task: Reference to the CeleryTask.
+    :param job_id: Id of the job this task belongs to.
+    :param encoded_input_esdl: UTF-8 encoded ESDL description which needs to be processed.
     """
     with BrokerInterface(config=WORKER.config.rabbitmq_config) as broker_if:
         # captured_logging_string = io.StringIO()
@@ -93,13 +131,23 @@ def wrapped_worker_task(task: WorkerTask, job_id: uuid4, encoded_input_esdl: byt
 
 
 class Worker:
+    """Worker which works as an Celery Worker application and runs a single type of task."""
+
     config = WorkerConfig()
+    """Configuration for the worker."""
     captured_logging_string = io.StringIO()
+    """Captured logging while performing the task."""
 
     celery_app: Celery
+    """Contains the Celery app configuration."""
     celery_worker: CeleryWorker
+    """The Celery Worker app."""
 
-    def start(self):
+    def start(self) -> None:
+        """Start the `Worker`.
+
+        Creates the Celery application, Celery Worker application and connects to RabbitMQ.
+        """
         rabbitmq_config = self.config.rabbitmq_config
         self.celery_app = Celery(
             broker=f"amqp://{rabbitmq_config.username}:{rabbitmq_config.password}@"
@@ -140,15 +188,21 @@ class Worker:
 UpdateProgressHandler = Callable[[float, str], None]
 WorkerTaskF = Callable[[str, Dict[str, str], UpdateProgressHandler], str]
 
-WORKER: Worker = None  # noqa
-WORKER_TASK_FUNCTION: WorkerTaskF = None  # noqa
-WORKER_TASK_TYPE: str = None  # noqa
+WORKER: Worker = None  # type: ignore [assignment]  # noqa
+WORKER_TASK_FUNCTION: WorkerTaskF = None  # type: ignore [assignment]  # noqa
+WORKER_TASK_TYPE: str = None  # type: ignore [assignment]  # noqa
 
 
 def initialize_worker(
     task_type: str,
     task_function: WorkerTaskF,
 ) -> None:
+    """Initialize and run the `Worker`.
+
+    :param task_type: Technical name of the task. Needs to be equal to the name of the celery task
+      to which the orchestrator forwards the task.
+    :param task_function: Function which performs the Celery task.
+    """
     global WORKER_TASK_FUNCTION, WORKER_TASK_TYPE, WORKER
     WORKER_TASK_TYPE = task_type
     WORKER_TASK_FUNCTION = task_function

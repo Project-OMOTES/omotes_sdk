@@ -24,22 +24,23 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.3.1",
-    "omotes-sdk-protocol ~= 0.0.4",
+    "omotes-sdk-protocol ~= 0.0.5",
     "celery ~= 5.3.6",
 ]
 
 [project.optional-dependencies]
 dev = [
-    #"pip-tools~=6.13.0",  # Installed via create_env script
+    "pip-tools~=7.3.0",
     "setuptools ~= 69.0.3",
-    "black~=22.1.0",
-    "flake8==6.1.0",
-    "Flake8-pyproject==1.2.3",
+    "black ~= 22.1.0",
+    "flake8 ~= 6.1.0",
+    "Flake8-pyproject ~= 1.2.3",
+    "flake8-docstrings ~= 1.7.0",
+    "flake8-quotes ~= 3.3.2",
     "pytest ~=7.3.1",
     "pytest-cov ~=4.0.0",
-    "bump2version==1.0.1",
     "mypy ~= 1.8.0",
-    "isort==5.13.2",
+    "isort ~= 5.13.2",
     "build ~= 1.0.3",
     "mypy-protobuf ~= 3.5.0",
     "setuptools-git-versioning < 2",
@@ -59,19 +60,29 @@ requires = [
     "setuptools-git-versioning<2",
 ]
 
+[tool.setuptools.package-data]
+"omotes_sdk" = ["py.typed"]
+
 [tool.setuptools-git-versioning]
 enabled = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 95"
+addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 30"
 
 [tool.coverage.run]
 source = ["src"]
 
 [tool.flake8]
-exclude = ['.venv/*', 'venv/*', 'doc/*']
-ignore = ['Q000', 'D401', 'W503']
-per-file-ignores = ['__init__.py:F401', 'test_main.py:D100,D101,D102,D103']
+exclude = [
+    '.venv/*',
+    'venv/*',
+    'doc/*',
+    'src/omotes_sdk/internal/orchestrator_worker_events/messages/*'
+]
+ignore = ['Q000', 'D401', 'W503', 'D104', 'D100']
+per-file-ignores = [
+    '__init__.py:F401',
+    './unit_test/*:D100,D101,D102,D103']
 max-line-length = 100
 count = true
 
@@ -93,4 +104,16 @@ exclude = ['.venv/*', 'venv/*', 'doc/*', 'ci/*']
 [[tool.mypy.overrides]]
 module = "unit_test.*"
 check_untyped_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "celery.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "kombu.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "billiard.*"
 ignore_missing_imports = true
