@@ -43,7 +43,7 @@ class TaskResult(google.protobuf.message.Message):
     celery_task_id: builtins.str
     celery_task_type: builtins.str
     result_type: global___TaskResult.ResultType.ValueType
-    output_esdl: builtins.bytes
+    output_esdl: builtins.str
     logs: builtins.str
     def __init__(
         self,
@@ -52,7 +52,7 @@ class TaskResult(google.protobuf.message.Message):
         celery_task_id: builtins.str = ...,
         celery_task_type: builtins.str = ...,
         result_type: global___TaskResult.ResultType.ValueType = ...,
-        output_esdl: builtins.bytes | None = ...,
+        output_esdl: builtins.str | None = ...,
         logs: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_output_esdl", b"_output_esdl", "output_esdl", b"output_esdl"]) -> builtins.bool: ...

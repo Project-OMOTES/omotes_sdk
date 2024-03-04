@@ -24,7 +24,7 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.3.1",
-    "omotes-sdk-protocol ~= 0.0.5",
+    "omotes-sdk-protocol ~= 0.0.6",
     "celery ~= 5.3.6",
 ]
 
@@ -79,10 +79,19 @@ exclude = [
     'doc/*',
     'src/omotes_sdk/internal/orchestrator_worker_events/messages/*'
 ]
-ignore = ['Q000', 'D401', 'W503', 'D104', 'D100']
+ignore = [
+    'Q000', # Remove bad quotes
+    'D401', # Docstring First line should be imperative
+    'E203', # Space before colon (not PEP-8 compliant, and conflicts with black)
+    'C408', # Suggestion to use dict() over {}
+    'W503', # Starting lines with operators.
+    'D104', # Missing docstring in public package
+    'D100'  # Missing docstring in public module
+]
 per-file-ignores = [
     '__init__.py:F401',
-    './unit_test/*:D100,D101,D102,D103']
+    './unit_test/*:D100,D101,D102,D103'
+]
 max-line-length = 100
 count = true
 

@@ -36,11 +36,11 @@ class JobSubmissionCallbackHandlerTest(unittest.TestCase):
             ),
         )
         callback_on_finished = Mock()
-        handler = JobSubmissionCallbackHandler(job, callback_on_finished, None, None)
+        handler = JobSubmissionCallbackHandler(job, callback_on_finished, None, None, None)
         result_msg = JobResult(
             uuid=str(job_id),
             result_type=JobResult.ResultType.SUCCEEDED,
-            output_esdl=b"esdl",
+            output_esdl="esdl",
             logs="logs",
         )
 
