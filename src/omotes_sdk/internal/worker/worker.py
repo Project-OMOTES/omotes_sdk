@@ -91,7 +91,7 @@ class WorkerTask(CeleryTask):
         #  error is published to logs. SDK wouldn't be notified otherwise.
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: dict) -> None:
+def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: Dict) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -110,8 +110,6 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_
 
         task_util = TaskUtil(job_id, task, broker_if)
         task_util.update_progress(0, "Job calculation started")
-        # TODO retrieve config as an input argument from Celery.
-        #  See https://github.com/Project-OMOTES/omotes-sdk-python/issues/3
         output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
 
         task_util.update_progress(1.0, "Calculation finished.")
