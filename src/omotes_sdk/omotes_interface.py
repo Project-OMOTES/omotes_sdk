@@ -168,8 +168,9 @@ class OmotesInterface:
         """Submit a new job and connect to progress and status updates and the job result.
 
         :param esdl: String containing the XML that make up the ESDL.
-        :param params_dict: Dictionary containing any job-specific, non-ESDL, configuration parameters
-            dictionary supports: str, Union[Struct, ListValue, str, float, bool, None, Mapping[str, Any], Sequence]
+        :param params_dict: Dictionary containing any job-specific, non-ESDL, configuration
+            parameters. Dictionary supports:
+            str, Union[Struct, ListValue, str, float, bool, None, Mapping[str, Any], Sequence]
         :param workflow_type: Type of the workflow to start.
         :param job_timeout: How long the job may take before it is considered to be timeout.
         :param callback_on_finished: Callback which is called with the job result once the job is
