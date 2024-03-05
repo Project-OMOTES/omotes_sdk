@@ -220,5 +220,5 @@ class OmotesInterface:
         """
         cancel_msg = JobCancel(uuid=str(job.id))
         self.broker_if.send_message_to(
-            OmotesQueueNames.job_cancel_queue_name(job), message=cancel_msg.SerializeToString()
+            OmotesQueueNames.job_cancel_queue_name(), message=cancel_msg.SerializeToString()
         )

@@ -42,10 +42,9 @@ class OmotesQueueNames:
         return f"jobs.{job.id}.status"
 
     @staticmethod
-    def job_cancel_queue_name(job: Job) -> str:
-        """Generate the job cancellation queue name given the job.
+    def job_cancel_queue_name() -> str:
+        """Generate the job cancellation queue name.
 
-        :param job: The job.
         :return: The queue name.
         """
-        return f"jobs.{job.id}.cancel"
+        return f"job_cancellations"
