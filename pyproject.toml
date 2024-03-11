@@ -26,6 +26,7 @@ dependencies = [
     "aio-pika ~= 9.3.1",
     "omotes-sdk-protocol ~= 0.0.7",
     "celery ~= 5.3.6",
+    "streamcapture ~= 1.2.2"
 ]
 
 [project.optional-dependencies]
