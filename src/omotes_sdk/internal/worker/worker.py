@@ -75,12 +75,27 @@ class WorkerTask(CeleryTask):
     stderr_capturer: streamcapture.StreamCapture
 
     def before_start(self, task_id: str, args: List[Any], kwargs: Dict[str, Any]) -> None:
+        """Runs before task start.
+
+        :param task_id: Celery task id of the task.
+        :param args: Unnamed arguments passed to the CeleryTask.
+        :param kwargs: Named arguments passed to the CeleryTask.
+        """
         self.logs = io.BytesIO()
         self.stdout_capturer = streamcapture.StreamCapture(sys.stdout, self.logs)
         self.stderr_capturer = streamcapture.StreamCapture(sys.stderr, self.logs)
 
     def after_return(self, status: str, retval: Any, task_id: str, args: List[Any],
                      kwargs: Dict[str, Any], einfo: str) -> None:
+        """Runs after task start.
+
+        :param status: Task status.
+        :param retval: Task return value.
+        :param task_id: Celery task id of the task.
+        :param args: Unnamed arguments passed to the CeleryTask.
+        :param kwargs: Named arguments passed to the CeleryTask.
+        :param einfo: Context information regarding the exception triggered.
+        """
         self.stdout_capturer.close()
         self.stderr_capturer.close()
 
