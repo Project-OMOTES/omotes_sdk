@@ -5,7 +5,7 @@ import sys
 from typing import Callable, Dict, List, Any
 from uuid import UUID
 
-import streamcapture  # type: ignore
+import streamcapture
 from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker

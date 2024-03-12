@@ -127,3 +127,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "billiard.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "streamcapture.*"
+ignore_missing_imports = true
