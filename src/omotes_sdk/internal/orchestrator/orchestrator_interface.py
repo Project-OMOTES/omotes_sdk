@@ -56,7 +56,10 @@ class JobSubmissionCallbackHandler:
 
 @dataclass
 class JobCancellationHandler:
+    """Handler to setup callback for receiving job cancellations."""
+
     callback_on_cancel_job: Callable[[JobCancel], None]
+    """Callback to call when a cancellation is received."""
 
     def callback_on_job_cancelled_wrapped(self, message: bytes) -> None:
         """Prepare the `Job` and `JobSubmission` messages before passing them to the callback.

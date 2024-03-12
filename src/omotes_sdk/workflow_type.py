@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 
 @dataclass
@@ -15,7 +15,7 @@ class WorkflowType:
 class WorkflowTypeManager:
     """Container for all possible workflows."""
 
-    _workflows: dict[str, WorkflowType]
+    _workflows: Dict[str, WorkflowType]
     """The possible workflows this SDK supports."""
 
     def __init__(self, possible_workflows: List[WorkflowType]):

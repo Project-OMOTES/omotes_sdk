@@ -47,4 +47,4 @@ class OmotesQueueNames:
 
         :return: The queue name.
         """
-        return f"job_cancellations"
+        return "job_cancellations"
