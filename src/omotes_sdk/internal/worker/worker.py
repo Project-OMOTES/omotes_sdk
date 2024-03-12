@@ -1,9 +1,11 @@
 import io
 import logging
 import socket
+import sys
 from typing import Callable, Dict, List, Any
 from uuid import UUID
 
+import streamcapture
 from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
@@ -68,13 +70,42 @@ class TaskUtil:
 class WorkerTask(CeleryTask):
     """Wrapped CeleryTask to connect to a number of CeleryTask events."""
 
+    logs: io.BytesIO
+    stdout_capturer: streamcapture.StreamCapture
+    stderr_capturer: streamcapture.StreamCapture
+
+    def before_start(self, task_id: str, args: List[Any], kwargs: Dict[str, Any]) -> None:
+        """Runs before task start.
+
+        :param task_id: Celery task id of the task.
+        :param args: Unnamed arguments passed to the CeleryTask.
+        :param kwargs: Named arguments passed to the CeleryTask.
+        """
+        self.logs = io.BytesIO()
+        self.stdout_capturer = streamcapture.StreamCapture(sys.stdout, self.logs)
+        self.stderr_capturer = streamcapture.StreamCapture(sys.stderr, self.logs)
+
+    def after_return(self, status: str, retval: Any, task_id: str, args: List[Any],
+                     kwargs: Dict[str, Any], einfo: str) -> None:
+        """Runs after task start.
+
+        :param status: Task status.
+        :param retval: Task return value.
+        :param task_id: Celery task id of the task.
+        :param args: Unnamed arguments passed to the CeleryTask.
+        :param kwargs: Named arguments passed to the CeleryTask.
+        :param einfo: Context information regarding the exception triggered.
+        """
+        self.stdout_capturer.close()
+        self.stderr_capturer.close()
+
     def on_failure(
-        self,
-        exc: Exception,
-        task_id: str,
-        args: List[Any],
-        kwargs: Dict[str, Any],
-        einfo: ExceptionInfo,
+            self,
+            exc: Exception,
+            task_id: str,
+            args: List[Any],
+            kwargs: Dict[str, Any],
+            einfo: ExceptionInfo,
     ) -> None:
         """Runs when the CeleryTask fails on an exception.
 
@@ -105,7 +136,6 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_
     :param params_dict: job, non-ESDL, parameters.
     """
     with BrokerInterface(config=WORKER.config.rabbitmq_config) as broker_if:
-        # captured_logging_string = io.StringIO()
         logger.info("Worker started new task %s", job_id)
 
         task_util = TaskUtil(job_id, task, broker_if)
@@ -119,7 +149,7 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_
             celery_task_type=WORKER_TASK_TYPE,
             result_type=TaskResult.ResultType.SUCCEEDED,
             output_esdl=output_esdl,
-            logs="",  # TODO captured_logging_string.getvalue(),
+            logs=task.logs.getvalue().decode(),
         )
         broker_if.send_message_to(
             WORKER.config.task_result_queue_name,
@@ -148,7 +178,7 @@ class Worker:
         rabbitmq_config = self.config.rabbitmq_config
         self.celery_app = Celery(
             broker=f"amqp://{rabbitmq_config.username}:{rabbitmq_config.password}@"
-            f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
+                   f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
         )
 
         # Config of celery app
@@ -161,6 +191,7 @@ class Worker:
         self.celery_app.conf.worker_prefetch_multiplier = 1
         self.celery_app.conf.broker_connection_retry_on_startup = True
         # app.conf.worker_send_task_events = True  # Tell the worker to send task events.
+        self.celery_app.conf.worker_redirect_stdouts = False
 
         self.celery_app.task(wrapped_worker_task, base=WorkerTask, name=WORKER_TASK_TYPE, bind=True)
 
@@ -191,8 +222,8 @@ WORKER_TASK_TYPE: str = None  # type: ignore [assignment]  # noqa
 
 
 def initialize_worker(
-    task_type: str,
-    task_function: WorkerTaskF,
+        task_type: str,
+        task_function: WorkerTaskF,
 ) -> None:
     """Initialize and run the `Worker`.
 
