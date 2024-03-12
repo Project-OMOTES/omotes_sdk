@@ -5,7 +5,7 @@ import sys
 from typing import Callable, Dict, List, Any
 from uuid import UUID
 
-import streamcapture
+import streamcapture  # type: ignore
 from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
@@ -74,22 +74,23 @@ class WorkerTask(CeleryTask):
     stdout_capturer: streamcapture.StreamCapture
     stderr_capturer: streamcapture.StreamCapture
 
-    def before_start(self, task_id, args, kwargs):
+    def before_start(self, task_id: str, args: List[Any], kwargs: Dict[str, Any]) -> None:
         self.logs = io.BytesIO()
         self.stdout_capturer = streamcapture.StreamCapture(sys.stdout, self.logs)
         self.stderr_capturer = streamcapture.StreamCapture(sys.stderr, self.logs)
 
-    def after_return(self, status, retval, task_id, args, kwargs, einfo):
+    def after_return(self, status: str, retval: Any, task_id: str, args: List[Any],
+                     kwargs: Dict[str, Any], einfo: str) -> None:
         self.stdout_capturer.close()
         self.stderr_capturer.close()
 
     def on_failure(
-        self,
-        exc: Exception,
-        task_id: str,
-        args: List[Any],
-        kwargs: Dict[str, Any],
-        einfo: ExceptionInfo,
+            self,
+            exc: Exception,
+            task_id: str,
+            args: List[Any],
+            kwargs: Dict[str, Any],
+            einfo: ExceptionInfo,
     ) -> None:
         """Runs when the CeleryTask fails on an exception.
 
@@ -162,7 +163,7 @@ class Worker:
         rabbitmq_config = self.config.rabbitmq_config
         self.celery_app = Celery(
             broker=f"amqp://{rabbitmq_config.username}:{rabbitmq_config.password}@"
-            f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
+                   f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
         )
 
         # Config of celery app
@@ -206,8 +207,8 @@ WORKER_TASK_TYPE: str = None  # type: ignore [assignment]  # noqa
 
 
 def initialize_worker(
-    task_type: str,
-    task_function: WorkerTaskF,
+        task_type: str,
+        task_function: WorkerTaskF,
 ) -> None:
     """Initialize and run the `Worker`.
 
