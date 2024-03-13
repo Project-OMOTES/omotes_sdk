@@ -125,8 +125,10 @@ class OmotesInterface:
         once the result is received and handled without exceptions through `callback_on_finished`.
         """
         if auto_disconnect_on_result:
+            logger.info("Connecting to update for job %s with auto disconnect on result", job.id)
             auto_disconnect_handler = self.disconnect_from_submitted_job
         else:
+            logger.info("Connecting to update for job %s and expect manual disconnect", job.id)
             auto_disconnect_handler = None
 
         callback_handler = JobSubmissionCallbackHandler(
@@ -183,7 +185,7 @@ class OmotesInterface:
             program using this SDK in order to resume listening to jobs in progress after a restart.
         """
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
-
+        logger.info("Submitting job %s", job.id)
         self.connect_to_submitted_job(
             job,
             callback_on_finished,
@@ -206,6 +208,7 @@ class OmotesInterface:
             OmotesQueueNames.job_submission_queue_name(workflow_type),
             message=job_submission_msg.SerializeToString(),
         )
+        logger.debug("Done submitting job %s", job.id)
 
         return job
 
@@ -218,7 +221,8 @@ class OmotesInterface:
 
         :param job: The job to cancel.
         """
+        logger.info("Cancelling job %s", job.id)
         cancel_msg = JobCancel(uuid=str(job.id))
         self.broker_if.send_message_to(
-            OmotesQueueNames.job_cancel_queue_name(job), message=cancel_msg.SerializeToString()
+            OmotesQueueNames.job_cancel_queue_name(), message=cancel_msg.SerializeToString()
         )

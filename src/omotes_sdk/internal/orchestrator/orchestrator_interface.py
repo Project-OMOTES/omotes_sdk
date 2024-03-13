@@ -3,7 +3,13 @@ import uuid
 from dataclasses import dataclass
 from typing import Callable
 
-from omotes_sdk_protocol.job_pb2 import JobSubmission, JobProgressUpdate, JobStatusUpdate, JobResult
+from omotes_sdk_protocol.job_pb2 import (
+    JobSubmission,
+    JobProgressUpdate,
+    JobStatusUpdate,
+    JobResult,
+    JobCancel,
+)
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk.job import Job
@@ -48,6 +54,24 @@ class JobSubmissionCallbackHandler:
             )
 
 
+@dataclass
+class JobCancellationHandler:
+    """Handler to setup callback for receiving job cancellations."""
+
+    callback_on_cancel_job: Callable[[JobCancel], None]
+    """Callback to call when a cancellation is received."""
+
+    def callback_on_job_cancelled_wrapped(self, message: bytes) -> None:
+        """Prepare the `JobCancel` message before passing them to the callback.
+
+        :param message: Serialized AMQP message containing a job cancellation.
+        """
+        cancelled_job = JobCancel()
+        cancelled_job.ParseFromString(message)
+
+        self.callback_on_cancel_job(cancelled_job)
+
+
 class OrchestratorInterface:
     """RabbitMQ interface specifically for the orchestrator."""
 
@@ -82,12 +106,25 @@ class OrchestratorInterface:
 
         :param callback_on_new_job: Callback to handle any new job submission.
         """
-        for workflow_type in self.workflow_type_manager.possible_workflows:
+        for workflow_type in self.workflow_type_manager.get_all_workflows():
             callback_handler = JobSubmissionCallbackHandler(workflow_type, callback_on_new_job)
             self.broker_if.add_queue_subscription(
                 OmotesQueueNames.job_submission_queue_name(workflow_type),
                 callback_on_message=callback_handler.callback_on_new_job_wrapped,
             )
+
+    def connect_to_job_cancellations(
+        self, callback_on_job_cancel: Callable[[JobCancel], None]
+    ) -> None:
+        """Connect to the job cancellations queue.
+
+        :param callback_on_job_cancel: Callback to handle any new job cancellations.
+        """
+        callback_handler = JobCancellationHandler(callback_on_job_cancel)
+        self.broker_if.add_queue_subscription(
+            OmotesQueueNames.job_cancel_queue_name(),
+            callback_on_message=callback_handler.callback_on_job_cancelled_wrapped,
+        )
 
     def send_job_progress_update(self, job: Job, progress_update: JobProgressUpdate) -> None:
         """Send a job progress update to the SDK.
