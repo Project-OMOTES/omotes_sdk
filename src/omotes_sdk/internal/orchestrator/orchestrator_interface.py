@@ -62,7 +62,7 @@ class JobCancellationHandler:
     """Callback to call when a cancellation is received."""
 
     def callback_on_job_cancelled_wrapped(self, message: bytes) -> None:
-        """Prepare the `Job` and `JobSubmission` messages before passing them to the callback.
+        """Prepare the `JobCancel` message before passing them to the callback.
 
         :param message: Serialized AMQP message containing a job cancellation.
         """
