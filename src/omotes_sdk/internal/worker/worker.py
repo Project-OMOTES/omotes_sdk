@@ -2,7 +2,6 @@ import io
 import logging
 import socket
 import sys
-import typing
 from typing import Callable, Dict, List, Any, Optional
 from uuid import UUID
 
