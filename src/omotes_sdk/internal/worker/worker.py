@@ -71,8 +71,6 @@ class TaskUtil:
 class WorkerTask(CeleryTask):
     """Wrapped CeleryTask to connect to a number of CeleryTask events."""
 
-    io.TextIOWrapper
-    typing.TextIO
     logs: io.BytesIO
     stdout_capturer: streamcapture.StreamCapture
     stderr_capturer: streamcapture.StreamCapture
