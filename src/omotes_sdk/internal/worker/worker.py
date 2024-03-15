@@ -2,10 +2,11 @@ import io
 import logging
 import socket
 import sys
-from typing import Callable, Dict, List, Any
+import typing
+from typing import Callable, Dict, List, Any, Optional
 from uuid import UUID
 
-import streamcapture
+from omotes_sdk import streamcapture
 from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
@@ -70,9 +71,19 @@ class TaskUtil:
 class WorkerTask(CeleryTask):
     """Wrapped CeleryTask to connect to a number of CeleryTask events."""
 
+    io.TextIOWrapper
+    typing.TextIO
     logs: io.BytesIO
     stdout_capturer: streamcapture.StreamCapture
     stderr_capturer: streamcapture.StreamCapture
+    broker_if: BrokerInterface
+
+    output_esdl: Optional[str]
+
+    def __init__(self) -> None:
+        """Create the worker task."""
+        super().__init__()
+        self.output_esdl = None
 
     def before_start(self, task_id: str, args: List[Any], kwargs: Dict[str, Any]) -> None:
         """Runs before task start.
@@ -85,8 +96,18 @@ class WorkerTask(CeleryTask):
         self.stdout_capturer = streamcapture.StreamCapture(sys.stdout, self.logs)
         self.stderr_capturer = streamcapture.StreamCapture(sys.stderr, self.logs)
 
-    def after_return(self, status: str, retval: Any, task_id: str, args: List[Any],
-                     kwargs: Dict[str, Any], einfo: str) -> None:
+        self.broker_if = BrokerInterface(config=WORKER.config.rabbitmq_config)
+        self.broker_if.start()
+
+    def after_return(
+        self,
+        status: str,
+        retval: Any,
+        task_id: str,
+        args: List[Any],
+        kwargs: Dict[str, Any],
+        einfo: str,
+    ) -> None:
         """Runs after task start.
 
         :param status: Task status.
@@ -98,14 +119,64 @@ class WorkerTask(CeleryTask):
         """
         self.stdout_capturer.close()
         self.stderr_capturer.close()
+        self.logs.flush()
+        logs = self.logs.getvalue().decode()
+        self.logs.close()
+
+        job_id: UUID = args[0]
+
+        result_message = None
+        if status == "SUCCESS":
+            logger.info("Job %s (celery task id %s) was successful.", job_id, self.request.id)
+            result_message = TaskResult(
+                job_id=str(job_id),
+                celery_task_id=self.request.id,
+                celery_task_type=WORKER_TASK_TYPE,
+                result_type=TaskResult.ResultType.SUCCEEDED,
+                output_esdl=self.output_esdl,
+                logs=logs,
+            )
+
+        elif status == "FAILURE":
+            logger.info("Job %s (celery task id %s) failed.", job_id, self.request.id)
+            result_message = TaskResult(
+                job_id=str(job_id),
+                celery_task_id=self.request.id,
+                celery_task_type=WORKER_TASK_TYPE,
+                result_type=TaskResult.ResultType.ERROR,
+                output_esdl="",
+                logs=logs,
+            )
+        else:
+            logger.error(
+                "Job %s led to unexpected celery task state %s. Please report or "
+                "implement how to handle this state",
+                job_id,
+                status,
+            )
+
+        if result_message:
+            logger.debug("Sending result for job %s", job_id)
+            self.broker_if.send_message_to(
+                WORKER.config.task_result_queue_name,
+                result_message.SerializeToString(),
+            )
+        else:
+            logger.error(
+                "Did not send a job result for job %s. This should not happen. Status: %s",
+                job_id,
+                status,
+            )
+
+        self.broker_if.stop()
 
     def on_failure(
-            self,
-            exc: Exception,
-            task_id: str,
-            args: List[Any],
-            kwargs: Dict[str, Any],
-            einfo: ExceptionInfo,
+        self,
+        exc: Exception,
+        task_id: str,
+        args: List[Any],
+        kwargs: Dict[str, Any],
+        einfo: ExceptionInfo,
     ) -> None:
         """Runs when the CeleryTask fails on an exception.
 
@@ -116,10 +187,8 @@ class WorkerTask(CeleryTask):
         :param einfo: Context information regarding the exception triggered.
         """
         super().on_failure(exc, task_id, args, kwargs, einfo)
-        logger.error("Failure detected for celery task %s", task_id)
-        # TODO Entrypoint to notify orchestrator & sdk of failure of task. At least in case where
-        #  Celery itself or the task triggers an error. This is necessary as task is dropped but an
-        #  error is published to logs. SDK wouldn't be notified otherwise.
+        job_id: UUID = args[0]
+        logger.error("Failure detected for job %s celery task %s", job_id, task_id)
 
 
 def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: Dict) -> None:
@@ -135,26 +204,11 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_
     :param input_esdl: ESDL description which needs to be processed.
     :param params_dict: job, non-ESDL, parameters.
     """
-    with BrokerInterface(config=WORKER.config.rabbitmq_config) as broker_if:
-        logger.info("Worker started new task %s", job_id)
-
-        task_util = TaskUtil(job_id, task, broker_if)
-        task_util.update_progress(0, "Job calculation started")
-        output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
-
-        task_util.update_progress(1.0, "Calculation finished.")
-        result_message = TaskResult(
-            job_id=str(job_id),
-            celery_task_id=task.request.id,
-            celery_task_type=WORKER_TASK_TYPE,
-            result_type=TaskResult.ResultType.SUCCEEDED,
-            output_esdl=output_esdl,
-            logs=task.logs.getvalue().decode(),
-        )
-        broker_if.send_message_to(
-            WORKER.config.task_result_queue_name,
-            result_message.SerializeToString(),
-        )
+    logger.info("Worker started new task %s", job_id)
+    task_util = TaskUtil(job_id, task, task.broker_if)
+    task_util.update_progress(0, "Job calculation started")
+    task.output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
+    task_util.update_progress(1.0, "Calculation finished.")
 
 
 class Worker:
@@ -178,7 +232,7 @@ class Worker:
         rabbitmq_config = self.config.rabbitmq_config
         self.celery_app = Celery(
             broker=f"amqp://{rabbitmq_config.username}:{rabbitmq_config.password}@"
-                   f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
+            f"{rabbitmq_config.host}:{rabbitmq_config.port}/{rabbitmq_config.virtual_host}",
         )
 
         # Config of celery app
@@ -222,8 +276,8 @@ WORKER_TASK_TYPE: str = None  # type: ignore [assignment]  # noqa
 
 
 def initialize_worker(
-        task_type: str,
-        task_function: WorkerTaskF,
+    task_type: str,
+    task_function: WorkerTaskF,
 ) -> None:
     """Initialize and run the `Worker`.
 
