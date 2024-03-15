@@ -291,9 +291,9 @@ class BrokerInterface(threading.Thread):
         )
         for queue_task in tasks_to_cancel:
             queue_task.cancel()
-        if self._channel:
+        if hasattr(self, "_channel") and self._channel:
             await self._channel.close()
-        if self._connection:
+        if hasattr(self, "_connection") and self._connection:
             await self._connection.close()
         logger.info("Stopped broker interface")
 
@@ -311,10 +311,17 @@ class BrokerInterface(threading.Thread):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
 
+        setup_task = None
         try:
-            self._loop.create_task(self._setup_broker_interface())
+            setup_task = self._loop.create_task(self._setup_broker_interface())
             self._loop.run_forever()
         finally:
+            # Setup task is destroyed if no reference to the task is kept. This is just to check
+            # if the task was successful but also to keep the reference.
+            if setup_task and not setup_task.done():
+                logger.error("Setup task was not completed even though it was created.")
+            elif setup_task is None:
+                logger.error("Setup task for AMQP connection was not created.")
             self._loop.close()
 
     def add_queue_subscription(
