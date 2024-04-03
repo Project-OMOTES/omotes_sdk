@@ -16,6 +16,7 @@ from omotes_sdk_protocol.job_pb2 import (
 )
 from omotes_sdk.job import Job
 from omotes_sdk.queue_names import OmotesQueueNames
+from omotes_sdk.types import ParamsDict
 from omotes_sdk.workflow_type import WorkflowType
 
 logger = logging.getLogger("omotes_sdk")
@@ -159,7 +160,7 @@ class OmotesInterface:
     def submit_job(
         self,
         esdl: str,
-        params_dict: dict,
+        params_dict: ParamsDict,
         workflow_type: WorkflowType,
         job_timeout: Optional[timedelta],
         callback_on_finished: Callable[[Job, JobResult], None],
