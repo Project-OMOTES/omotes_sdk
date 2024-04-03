@@ -190,7 +190,10 @@ class OmotesInterface:
         :param callback_on_progress_update: Callback which is called with any progress updates.
         :param callback_on_status_update: Callback which is called with any status updates.
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
-        once the result is received and handled without exceptions through `callback_on_finished`.
+            once the result is received and handled without exceptions through
+            `callback_on_finished`.
+        :raises UnknownWorkflowException: If `workflow_type` is unknown as a possible workflow in
+            this interface.
         :return: The job handle which is created. This object needs to be saved persistently by the
             program using this SDK in order to resume listening to jobs in progress after a restart.
         """

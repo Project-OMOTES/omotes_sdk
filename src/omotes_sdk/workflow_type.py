@@ -12,9 +12,19 @@ class WorkflowType:
     """Human-readable name for the workflow."""
 
     def __hash__(self) -> int:
+        """Hash the `WorkflowType`.
+
+        :return: A hash identifying this workflow type.
+        """
         return hash(self.workflow_type_name)
 
     def __eq__(self, other: Any) -> bool:
+        """Check if this `WorkflowType` is equal to another.
+
+        :param other: The other `WorkflowType` (or other object).
+        :return: True of the 2 objects are considered equal based on the `workflow_type_name`,
+            otherwise False.
+        """
         if isinstance(other, WorkflowType):
             return self.workflow_type_name == other.workflow_type_name
         else:
