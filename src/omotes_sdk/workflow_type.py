@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 
 
 @dataclass
@@ -10,6 +10,15 @@ class WorkflowType:
     """Technical name for the workflow."""
     workflow_type_description_name: str
     """Human-readable name for the workflow."""
+
+    def __hash__(self) -> int:
+        return hash(self.workflow_type_name)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, WorkflowType):
+            return self.workflow_type_name == other.workflow_type_name
+        else:
+            return False
 
 
 class WorkflowTypeManager:
@@ -39,3 +48,11 @@ class WorkflowTypeManager:
         :return: The workflows.
         """
         return list(self._workflows.values())
+
+    def workflow_exists(self, workflow: WorkflowType) -> bool:
+        """Check if the workflow exists within this manager.
+
+        :param workflow: Check if this workflow exists within the manager.
+        :return: If the workflow exists.
+        """
+        return workflow.workflow_type_name in self._workflows
