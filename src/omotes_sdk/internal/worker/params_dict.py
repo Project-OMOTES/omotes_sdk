@@ -5,7 +5,7 @@ from omotes_sdk.types import ParamsDict, ParamsDictValues
 
 logger = logging.getLogger("omotes_sdk_internal")
 
-Expected = TypeVar("Expected", bound=ParamsDictValues)
+ParamsDictValue = TypeVar("ParamsDictValue", bound=ParamsDictValues)
 
 
 class WrongFieldTypeException(Exception):
@@ -23,9 +23,9 @@ class MissingFieldTypeException(Exception):
 def parse_workflow_config_parameter(
     workflow_config: ParamsDict,
     field_key: str,
-    expected_type: Type[Expected],
-    default_value: Optional[Expected],
-) -> Expected:
+    expected_type: Type[ParamsDictValue],
+    default_value: Optional[ParamsDictValue],
+) -> ParamsDictValue:
     """Parse the workflow config parameter according to the expected key and type.
 
     If either the key is missing or the value has the wrong type, the default value is used
@@ -50,7 +50,7 @@ def parse_workflow_config_parameter(
         # cast is necessary here as Expected type var may not have the same type as
         # `workflow_config[field_key]` according to the type checker. However, we have confirmed
         # the type already so we may cast it.
-        result = cast(Expected, maybe_value)
+        result = cast(ParamsDictValue, maybe_value)
     elif default_value:
         result = default_value
         if is_present and not isinstance(maybe_value, expected_type):

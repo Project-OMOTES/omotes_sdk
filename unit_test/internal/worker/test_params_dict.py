@@ -22,7 +22,7 @@ class TestModule(unittest.TestCase):
 
         # Assert
         expected_param = 1.0
-        self.assertEquals(param, expected_param)
+        self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__key_unavailable_but_default(self) -> None:
         # Arrange
@@ -38,7 +38,7 @@ class TestModule(unittest.TestCase):
 
         # Assert
         expected_param = 2.0
-        self.assertEquals(param, expected_param)
+        self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__key_wrong_type_but_default(self) -> None:
         # Arrange
@@ -54,7 +54,7 @@ class TestModule(unittest.TestCase):
 
         # Assert
         expected_param = 2.0
-        self.assertEquals(param, expected_param)
+        self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__key_missing_and_no_default(self) -> None:
         # Arrange
