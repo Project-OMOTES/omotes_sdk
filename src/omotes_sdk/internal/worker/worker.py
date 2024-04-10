@@ -21,6 +21,14 @@ from omotes_sdk.internal.orchestrator_worker_events.messages.task_pb2 import (
 logger = logging.getLogger("omotes_sdk_internal")
 
 
+class EarlySystemExit(Exception):
+    """Wrapper for `SystemExit` exception.
+
+    To ensure that the worker process does not shutdown but rather handles the `SystemExit` as an
+    error"""
+    ...
+
+
 class TaskUtil:
     """Utilities for a Celery task."""
 
@@ -204,7 +212,11 @@ def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_
     logger.info("Worker started new task %s", job_id)
     task_util = TaskUtil(job_id, task, task.broker_if)
     task_util.update_progress(0, "Job calculation started")
-    task.output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
+    try:
+        task.output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
+    except SystemExit as e:
+        raise EarlySystemExit(e)
+
     task_util.update_progress(1.0, "Calculation finished.")
 
 
