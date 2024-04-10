@@ -25,7 +25,9 @@ class EarlySystemExit(Exception):
     """Wrapper for `SystemExit` exception.
 
     To ensure that the worker process does not shutdown but rather handles the `SystemExit` as an
-    error"""
+    error
+    """
+
     ...
 
 
