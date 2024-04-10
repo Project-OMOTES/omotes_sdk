@@ -1,34 +1,15 @@
-from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from dataclasses import dataclass, field
+from typing import List, Optional, Dict
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class WorkflowType:
     """Define a type of workflow this SDK supports."""
 
-    workflow_type_name: str
+    workflow_type_name: str = field(hash=True, compare=True)
     """Technical name for the workflow."""
-    workflow_type_description_name: str
+    workflow_type_description_name: str = field(hash=False, compare=False)
     """Human-readable name for the workflow."""
-
-    def __hash__(self) -> int:
-        """Hash the `WorkflowType`.
-
-        :return: A hash identifying this workflow type.
-        """
-        return hash(self.workflow_type_name)
-
-    def __eq__(self, other: Any) -> bool:
-        """Check if this `WorkflowType` is equal to another.
-
-        :param other: The other `WorkflowType` (or other object).
-        :return: True of the 2 objects are considered equal based on the `workflow_type_name`,
-            otherwise False.
-        """
-        if isinstance(other, WorkflowType):
-            return self.workflow_type_name == other.workflow_type_name
-        else:
-            return False
 
 
 class WorkflowTypeManager:
