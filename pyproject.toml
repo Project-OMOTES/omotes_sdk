@@ -1,7 +1,7 @@
 [project]
 name = "omotes-sdk-python"
 requires-python = ">=3.8.1"
-version = "0.0.13"
+dynamic = ["version"]
 authors = [
     { name = "Sebastiaan la Fleur", email = "sebastiaan.lafleur@tno.nl" },
     { name = "Mark Vrijlandt", email = "mark.vrijlandt@tno.nl" },
