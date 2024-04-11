@@ -1,14 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class WorkflowType:
     """Define a type of workflow this SDK supports."""
 
-    workflow_type_name: str
+    workflow_type_name: str = field(hash=True, compare=True)
     """Technical name for the workflow."""
-    workflow_type_description_name: str
+    workflow_type_description_name: str = field(hash=False, compare=False)
     """Human-readable name for the workflow."""
 
 
@@ -39,3 +39,11 @@ class WorkflowTypeManager:
         :return: The workflows.
         """
         return list(self._workflows.values())
+
+    def workflow_exists(self, workflow: WorkflowType) -> bool:
+        """Check if the workflow exists within this manager.
+
+        :param workflow: Check if this workflow exists within the manager.
+        :return: If the workflow exists.
+        """
+        return workflow.workflow_type_name in self._workflows

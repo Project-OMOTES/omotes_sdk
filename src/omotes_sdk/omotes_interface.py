@@ -17,7 +17,7 @@ from omotes_sdk_protocol.job_pb2 import (
 from omotes_sdk.job import Job
 from omotes_sdk.queue_names import OmotesQueueNames
 from omotes_sdk.types import ParamsDict
-from omotes_sdk.workflow_type import WorkflowType
+from omotes_sdk.workflow_type import WorkflowType, WorkflowTypeManager
 
 logger = logging.getLogger("omotes_sdk")
 
@@ -71,20 +71,30 @@ class JobSubmissionCallbackHandler:
             self.callback_on_status_update(self.job, status_update)
 
 
+class UnknownWorkflowException(Exception):
+    """Thrown if a job is submitted using an unknown workflow type."""
+
+    ...
+
+
 class OmotesInterface:
     """SDK interface for other applications to communicate with OMOTES."""
 
     broker_if: BrokerInterface
     """Interface to RabbitMQ broker."""
+    workflow_type_manager: WorkflowTypeManager
+    """Manager of all possible workflows."""
 
-    def __init__(self, rabbitmq_config: RabbitMQConfig):
+    def __init__(self, rabbitmq_config: RabbitMQConfig, possible_workflows: WorkflowTypeManager):
         """Create the OMOTES interface.
 
         NOTE: Needs to be started separately.
 
         :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
+        :param possible_workflows: Container for all workflows which are expected to exist.
         """
         self.broker_if = BrokerInterface(rabbitmq_config)
+        self.workflow_type_manager = possible_workflows
 
     def start(self) -> None:
         """Start any other interfaces."""
@@ -181,10 +191,16 @@ class OmotesInterface:
         :param callback_on_progress_update: Callback which is called with any progress updates.
         :param callback_on_status_update: Callback which is called with any status updates.
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
-        once the result is received and handled without exceptions through `callback_on_finished`.
+            once the result is received and handled without exceptions through
+            `callback_on_finished`.
+        :raises UnknownWorkflowException: If `workflow_type` is unknown as a possible workflow in
+            this interface.
         :return: The job handle which is created. This object needs to be saved persistently by the
             program using this SDK in order to resume listening to jobs in progress after a restart.
         """
+        if not self.workflow_type_manager.workflow_exists(workflow_type):
+            raise UnknownWorkflowException()
+
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
         logger.info("Submitting job %s", job.id)
         self.connect_to_submitted_job(
