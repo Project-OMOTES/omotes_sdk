@@ -17,6 +17,7 @@ from omotes_sdk.internal.orchestrator_worker_events.messages.task_pb2 import (
     TaskResult,
     TaskProgressUpdate,
 )
+from omotes_sdk.types import ParamsDict
 
 logger = logging.getLogger("omotes_sdk_internal")
 
@@ -198,7 +199,9 @@ class WorkerTask(CeleryTask):
         logger.error("Failure detected for job %s celery task %s", job_id, task_id)
 
 
-def wrapped_worker_task(task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: Dict) -> None:
+def wrapped_worker_task(
+    task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: ParamsDict
+) -> None:
     """Task performed by Celery.
 
     Note: Be careful! This spawns within a subprocess and gains a copy of memory from parent
@@ -279,7 +282,7 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[str, dict, UpdateProgressHandler], str]
+WorkerTaskF = Callable[[str, ParamsDict, UpdateProgressHandler], str]
 
 WORKER: Worker = None  # type: ignore [assignment]  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # type: ignore [assignment]  # noqa
