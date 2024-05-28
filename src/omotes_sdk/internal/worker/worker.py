@@ -228,8 +228,9 @@ def wrapped_worker_task(
 class Worker:
     """Worker which works as an Celery Worker application and runs a single type of task."""
 
-    config = WorkerConfig()
+    config: WorkerConfig
     """Configuration for the worker."""
+
     captured_logging_string = io.StringIO()
     """Captured logging while performing the task."""
 
@@ -237,6 +238,10 @@ class Worker:
     """Contains the Celery app configuration."""
     celery_worker: CeleryWorker
     """The Celery Worker app."""
+
+    def __init__(self) -> None:
+        """Instantiate Worker instance config attribute."""
+        self.config = WorkerConfig()
 
     def start(self) -> None:
         """Start the `Worker`.
