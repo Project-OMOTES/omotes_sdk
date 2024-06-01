@@ -8,6 +8,7 @@ authors = [
 ]
 description = "Python implementation of the OMOTES SDK through jobs which may be submitted, receive status updates for submitted jobs or cancel submitted jobs."
 readme = "README.md"
+license = {file = "LICENSE"}
 classifiers = [
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
@@ -26,7 +27,7 @@ dependencies = [
     "aio-pika ~= 9.3.1",
     "omotes-sdk-protocol ~= 0.0.8",
     "celery ~= 5.3.6",
-    "streamcapture ~= 1.2.2",
+    #"streamcapture ~= 1.2.3", TODO: See #4, this is reenabled once streamcapture removes AGPL dependency
 ]
 
 [project.optional-dependencies]
