@@ -5,6 +5,8 @@ r"""
 
 TODO FORK! Until PR is merged by author.
 
+LICENSED AS MIT: https://github.com/sloisel/streamcapture/blob/master/LICENSE
+
 ## streamcapture: capture the outputs of Python streams, such as sys.stdout and sys.stderr
 
 ### Author: Sébastien Loisel
