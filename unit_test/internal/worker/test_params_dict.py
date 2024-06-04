@@ -24,6 +24,22 @@ class TestModule(unittest.TestCase):
         expected_param = 1.0
         self.assertEqual(param, expected_param)
 
+    def test__parse_workflow_config_parameter__key_available_expect_int_but_get_float(self) -> None:
+        # Arrange
+        workflow_config = {"some-key": 1.4}
+        field_key = "some-key"
+        expected_type = int
+        default_value = 2.0
+
+        # Act
+        param = parse_workflow_config_parameter(
+            workflow_config, field_key, expected_type, default_value
+        )
+
+        # Assert
+        expected_param = 1
+        self.assertEqual(param, expected_param)
+
     def test__parse_workflow_config_parameter__key_unavailable_but_default(self) -> None:
         # Arrange
         workflow_config = {"no-key": 1.0}

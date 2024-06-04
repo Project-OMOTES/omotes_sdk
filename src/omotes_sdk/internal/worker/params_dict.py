@@ -51,6 +51,22 @@ def parse_workflow_config_parameter(
         # `workflow_config[field_key]` according to the type checker. However, we have confirmed
         # the type already so we may cast it.
         result = cast(ParamsDictValue, maybe_value)
+    elif is_present and type(maybe_value) is float and expected_type is int:
+        # when the field value type is float but the Expected type is an integer,
+        # round the value to an integer and log the warning message
+        # if the non-rounded value is received.
+        rounded_maybe_value = round(maybe_value)
+        result = cast(ParamsDictValue, rounded_maybe_value)
+        if rounded_maybe_value != maybe_value:
+            logger.warning(
+                "%s field was passed in workflow configuration but as a %s instead of %s. "
+                "Rounding the field value from %s to %s.",
+                field_key,
+                of_type,
+                expected_type,
+                maybe_value,
+                result
+            )
     elif default_value:
         result = default_value
         if is_present and not isinstance(maybe_value, expected_type):
