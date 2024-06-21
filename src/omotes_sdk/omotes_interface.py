@@ -14,10 +14,11 @@ from omotes_sdk_protocol.job_pb2 import (
     JobSubmission,
     JobCancel,
 )
+from omotes_sdk_protocol.work_flow_pb2 import AvailableWorkflows, RequestAvailableWorkflows
 from omotes_sdk.job import Job
 from omotes_sdk.queue_names import OmotesQueueNames
 from omotes_sdk.types import ParamsDict
-from omotes_sdk.workflow_type import WorkflowType, WorkflowTypeManager
+from omotes_sdk.workflow_type import WorkflowType
 
 logger = logging.getLogger("omotes_sdk")
 
@@ -82,23 +83,30 @@ class OmotesInterface:
 
     broker_if: BrokerInterface
     """Interface to RabbitMQ broker."""
-    workflow_type_manager: WorkflowTypeManager
-    """Manager of all possible workflows."""
+    callback_on_available_workflows_update: Callable[[AvailableWorkflows], None]
+    """Handler which is called when the available workflows are updated."""
 
-    def __init__(self, rabbitmq_config: RabbitMQConfig, possible_workflows: WorkflowTypeManager):
+    def __init__(
+        self,
+        rabbitmq_config: RabbitMQConfig,
+        callback_on_available_workflows_update: Callable[[AvailableWorkflows], None],
+    ):
         """Create the OMOTES interface.
 
         NOTE: Needs to be started separately.
 
         :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
-        :param possible_workflows: Container for all workflows which are expected to exist.
+        :param callback_on_available_workflows_update: Handler which is called when the available
+        workflows are updated.
         """
         self.broker_if = BrokerInterface(rabbitmq_config)
-        self.workflow_type_manager = possible_workflows
+        self.callback_on_available_workflows_update = callback_on_available_workflows_update
 
     def start(self) -> None:
-        """Start any other interfaces."""
+        """Start any other interfaces and request available workflows."""
         self.broker_if.start()
+        self.connect_to_available_workflows_updates()
+        self.request_available_workflows()
 
     def stop(self) -> None:
         """Stop any other interfaces."""
@@ -198,8 +206,10 @@ class OmotesInterface:
         :return: The job handle which is created. This object needs to be saved persistently by the
             program using this SDK in order to resume listening to jobs in progress after a restart.
         """
-        if not self.workflow_type_manager.workflow_exists(workflow_type):
-            raise UnknownWorkflowException()
+        # TODO workflow_type_manager no longer accessible here
+        #   create instance here as well in 'callback_on_update_available_workflows_wrapped'?
+        # if not self.workflow_type_manager.workflow_exists(workflow_type):
+        #     raise UnknownWorkflowException()
 
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
         logger.info("Submitting job %s", job.id)
@@ -242,4 +252,28 @@ class OmotesInterface:
         cancel_msg = JobCancel(uuid=str(job.id))
         self.broker_if.send_message_to(
             OmotesQueueNames.job_cancel_queue_name(), message=cancel_msg.SerializeToString()
+        )
+
+    def callback_on_update_available_workflows_wrapped(self, message: bytes) -> None:
+        """Parse a serialized AvailableWorkflows message and call handler.
+
+        :param message: Serialized message.
+        """
+        available_workflows_pb = AvailableWorkflows()
+        available_workflows_pb.ParseFromString(message)
+        self.callback_on_available_workflows_update(available_workflows_pb)
+
+    def connect_to_available_workflows_updates(self) -> None:
+        """Connect to updates of the available workflows."""
+        self.broker_if.add_queue_subscription(
+            queue_name=OmotesQueueNames.available_workflows_queue_name(),
+            callback_on_message=self.callback_on_update_available_workflows_wrapped,
+        )
+
+    def request_available_workflows(self) -> None:
+        """Request the available workflows."""
+        request_available_workflows_pb = RequestAvailableWorkflows()
+        self.broker_if.send_message_to(
+            OmotesQueueNames.request_available_workflows_queue_name(),
+            request_available_workflows_pb.SerializeToString(),
         )
