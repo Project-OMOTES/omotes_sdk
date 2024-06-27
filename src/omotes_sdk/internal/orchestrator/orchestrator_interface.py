@@ -10,7 +10,7 @@ from omotes_sdk_protocol.job_pb2 import (
     JobResult,
     JobCancel,
 )
-from omotes_sdk_protocol.work_flow_pb2 import RequestAvailableWorkflows
+from omotes_sdk_protocol.workflow_pb2 import RequestAvailableWorkflows
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk.job import Job
@@ -77,7 +77,7 @@ class JobCancellationHandler:
 class RequestWorkflowsHandler:
     """Handler to set up callback for receiving available work flows requests."""
 
-    callback_on_request_work_flows: Callable[[RequestAvailableWorkflows], None]
+    callback_on_request_workflows: Callable[[RequestAvailableWorkflows], None]
     """Callback to call when a request work flows is received."""
 
     def callback_on_request_workflows_wrapped(self, message: bytes) -> None:
@@ -85,10 +85,10 @@ class RequestWorkflowsHandler:
 
         :param message: Serialized AMQP message containing a request work flow.
         """
-        request_available_work_flows = RequestAvailableWorkflows()
-        request_available_work_flows.ParseFromString(message)
+        request_available_workflows = RequestAvailableWorkflows()
+        request_available_workflows.ParseFromString(message)
 
-        self.callback_on_request_work_flows(request_available_work_flows)
+        self.callback_on_request_workflows(request_available_workflows)
 
 
 class OrchestratorInterface:
@@ -113,6 +113,10 @@ class OrchestratorInterface:
     def start(self) -> None:
         """Start the orchestrator interface."""
         self.broker_if.start()
+        self.connect_to_request_available_workflows(
+            callback_on_request_workflows=self.request_workflows_handler
+        )
+        self.send_available_workflows(self.workflow_type_manager)
 
     def stop(self) -> None:
         """Stop the orchestrator interface."""
@@ -187,6 +191,14 @@ class OrchestratorInterface:
         self.broker_if.send_message_to(
             OmotesQueueNames.job_results_queue_name(job), result.SerializeToString()
         )
+
+    def request_workflows_handler(self, request_workflows: RequestAvailableWorkflows) -> None:
+        """When an available work flows request is received from the SDK.
+
+        :param request_workflows: Request available work flows.
+        """
+        logger.info("Received an available workflows request")
+        self.send_available_workflows(self.workflow_type_manager)
 
     def send_available_workflows(self, workflow_type_manager: WorkflowTypeManager) -> None:
         """Send the available workflows to the SDK.
