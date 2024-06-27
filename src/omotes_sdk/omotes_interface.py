@@ -73,6 +73,12 @@ class JobSubmissionCallbackHandler:
             self.callback_on_status_update(self.job, status_update)
 
 
+class UndefinedWorkflowsException(Exception):
+    """Thrown if the workflows are needed but not defined yet."""
+
+    ...
+
+
 class UnknownWorkflowException(Exception):
     """Thrown if a job is submitted using an unknown workflow type."""
 
@@ -282,6 +288,9 @@ class OmotesInterface:
             request_available_workflows_pb.SerializeToString(),
         )
 
-    def get_workflow_type_manager(self) -> WorkflowTypeManager | None:
+    def get_workflow_type_manager(self) -> WorkflowTypeManager:
         """Get the available workflows."""
-        return self.workflow_type_manager
+        if self.workflow_type_manager:
+            return self.workflow_type_manager
+        else:
+            raise UndefinedWorkflowsException()
