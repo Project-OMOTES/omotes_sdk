@@ -104,7 +104,6 @@ class OmotesInterface:
         NOTE: Needs to be started separately.
 
         :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
-        workflows are updated.
         """
         self.broker_if = BrokerInterface(rabbitmq_config)
         self.workflow_type_manager = None
