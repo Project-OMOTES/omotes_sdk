@@ -1,8 +1,9 @@
 import json
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Dict, Union
-from typing_extensions import Self
+from typing import List, Optional, Dict, Union, Any
+from typing_extensions import Self, override
 
 from omotes_sdk_protocol.workflow_pb2 import (
     AvailableWorkflows,
@@ -18,7 +19,7 @@ from omotes_sdk_protocol.workflow_pb2 import (
 
 
 @dataclass(eq=True, frozen=True)
-class WorkflowParameter:
+class WorkflowParameter(ABC):
     """Define a workflow parameter this SDK supports."""
 
     key_name: str = field(hash=True, compare=True)
@@ -27,13 +28,54 @@ class WorkflowParameter:
     """Optionally override the 'snake_case to text' 'key_name' (displayed above the input field)."""
     description: str | None = field(default=None, hash=True, compare=True)
     """Optional description (displayed below the input field)."""
+    type_name: str = ""
+    """Parameter type name, set in child class."""
+
+    @abstractmethod
+    def to_pb_message(self) -> Union[
+        StringParameterPb,
+        BooleanParameterPb,
+        IntegerParameterPb,
+        FloatParameterPb,
+        DateTimeParameterPb,
+    ]:
+        """Abstract function to generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_pb_message(
+        cls,
+        parameter_pb: WorkflowParameterPb,
+        parameter_type_pb: Any,
+    ) -> Self:
+        """Abstract function to create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_json_config(cls, json_config: dict) -> Self:
+        """Abstract function to create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        pass
 
     def __post_init__(self) -> None:
         """Check parameter format."""
         for name, field_type in self.__annotations__.items():
-            # Do not check dataclasses (like KeyDisplayPair)
+            # Do not check dataclasses (like StringEnumOption)
             # TODO better way of checking that 'field_type' is dataclass?
-            if "KeyDisplayPair" not in str(field_type) and not isinstance(
+            if "StringEnumOption" not in str(field_type) and not isinstance(
                 self.__dict__[name], field_type
             ):
                 current_type = type(self.__dict__[name])
@@ -44,7 +86,7 @@ class WorkflowParameter:
 
 
 @dataclass(eq=True, frozen=True)
-class KeyDisplayPair:
+class StringEnumOption:
     """Define a key display pair this SDK supports."""
 
     key_name: str = field(hash=True, compare=True)
@@ -61,8 +103,77 @@ class StringParameter(WorkflowParameter):
     """Parameter type name."""
     default: str | None = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    enum_options: list[KeyDisplayPair] | None = field(default=None, hash=False, compare=False)
+    enum_options: list[StringEnumOption] | None = field(default=None, hash=False, compare=False)
     """Optional multiple choice values."""
+
+    @override
+    def to_pb_message(self) -> StringParameterPb:
+        """Generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        parameter_type_pb = StringParameterPb(default=self.default)
+        if self.enum_options:
+            for _string_enum in self.enum_options:
+                parameter_type_pb.enum_options.extend(
+                    [
+                        StringEnumPb(
+                            key_name=_string_enum.key_name,
+                            display_name=_string_enum.display_name,
+                        )
+                    ]
+                )
+        return parameter_type_pb
+
+    @classmethod
+    @override
+    def from_pb_message(
+        cls, parameter_pb: WorkflowParameterPb, parameter_type_pb: StringParameterPb
+    ) -> Self:
+        """Create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        parameter = cls(
+            key_name=parameter_pb.key_name,
+            title=parameter_pb.title,
+            description=parameter_pb.description,
+            default=parameter_type_pb.default,
+            enum_options=[],
+        )
+        for enum_option_pb in parameter_type_pb.enum_options:
+            if parameter_type_pb.enum_options and parameter.enum_options is not None:
+                parameter.enum_options.append(
+                    StringEnumOption(
+                        key_name=enum_option_pb.key_name,
+                        display_name=enum_option_pb.display_name,
+                    )
+                )
+        return parameter
+
+    @classmethod
+    @override
+    def from_json_config(cls, json_config: dict) -> Self:
+        """Create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        if "enum_options" in json_config:
+            enum_options = []
+            for enum_option in json_config["enum_options"]:
+                enum_options.append(
+                    StringEnumOption(
+                        key_name=enum_option["key_name"],
+                        display_name=enum_option["display_name"],
+                    )
+                )
+            json_config.pop("enum_options")
+            return cls(**json_config, enum_options=enum_options)
+        else:
+            return cls(**json_config)
 
 
 @dataclass(eq=True, frozen=True)
@@ -73,6 +184,42 @@ class BooleanParameter(WorkflowParameter):
     """Parameter type name."""
     default: bool | None = field(default=None, hash=False, compare=False)
     """Optional default value."""
+
+    @override
+    def to_pb_message(self) -> BooleanParameterPb:
+        """Generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        return BooleanParameterPb(default=self.default)
+
+    @classmethod
+    @override
+    def from_pb_message(
+        cls, parameter_pb: WorkflowParameterPb, parameter_type_pb: BooleanParameterPb
+    ) -> Self:
+        """Create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        return cls(
+            key_name=parameter_pb.key_name,
+            title=parameter_pb.title,
+            description=parameter_pb.description,
+            default=parameter_type_pb.default,
+        )
+
+    @classmethod
+    @override
+    def from_json_config(cls, json_config: dict) -> Self:
+        """Create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        return cls(**json_config)
 
 
 @dataclass(eq=True, frozen=True)
@@ -88,6 +235,48 @@ class IntegerParameter(WorkflowParameter):
     maximum: int | None = field(default=None, hash=False, compare=False)
     """Optional maximum allowed value."""
 
+    @override
+    def to_pb_message(self) -> IntegerParameterPb:
+        """Generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        return IntegerParameterPb(default=self.default, minimum=self.minimum, maximum=self.maximum)
+
+    @classmethod
+    @override
+    def from_pb_message(
+        cls, parameter_pb: WorkflowParameterPb, parameter_type_pb: IntegerParameterPb
+    ) -> Self:
+        """Create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        return cls(
+            key_name=parameter_pb.key_name,
+            title=parameter_pb.title,
+            description=parameter_pb.description,
+            default=parameter_type_pb.default,
+            minimum=(
+                parameter_type_pb.minimum if parameter_type_pb.HasField("minimum") else None
+            ),  # protobuf has '0' default value for int instead of None
+            maximum=(
+                parameter_type_pb.maximum if parameter_type_pb.HasField("maximum") else None
+            ),  # protobuf has '0' default value for int instead of None
+        )
+
+    @classmethod
+    @override
+    def from_json_config(cls, json_config: dict) -> Self:
+        """Create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        return cls(**json_config)
+
 
 @dataclass(eq=True, frozen=True)
 class FloatParameter(WorkflowParameter):
@@ -102,6 +291,48 @@ class FloatParameter(WorkflowParameter):
     maximum: float | None = field(default=None, hash=False, compare=False)
     """Optional maximum allowed value."""
 
+    @override
+    def to_pb_message(self) -> FloatParameterPb:
+        """Generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        return FloatParameterPb(default=self.default, minimum=self.minimum, maximum=self.maximum)
+
+    @classmethod
+    @override
+    def from_pb_message(
+        cls, parameter_pb: WorkflowParameterPb, parameter_type_pb: FloatParameterPb
+    ) -> Self:
+        """Create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        return cls(
+            key_name=parameter_pb.key_name,
+            title=parameter_pb.title,
+            description=parameter_pb.description,
+            default=parameter_type_pb.default,
+            minimum=(
+                parameter_type_pb.minimum if parameter_type_pb.HasField("minimum") else None
+            ),  # protobuf has '0' default value for int instead of None
+            maximum=(
+                parameter_type_pb.maximum if parameter_type_pb.HasField("maximum") else None
+            ),  # protobuf has '0' default value for int instead of None
+        )
+
+    @classmethod
+    @override
+    def from_json_config(cls, json_config: dict) -> Self:
+        """Create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        return cls(**json_config)
+
 
 @dataclass(eq=True, frozen=True)
 class DateTimeParameter(WorkflowParameter):
@@ -111,6 +342,76 @@ class DateTimeParameter(WorkflowParameter):
     """Parameter type name."""
     default: datetime | None = field(default=None, hash=False, compare=False)
     """Optional default value."""
+
+    @override
+    def to_pb_message(self) -> DateTimeParameterPb:
+        """Generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        if self.default is None:
+            default_value = None
+        else:
+            default_value = self.default.isoformat()
+        return DateTimeParameterPb(default=default_value)
+
+    @classmethod
+    @override
+    def from_pb_message(
+        cls, parameter_pb: WorkflowParameterPb, parameter_type_pb: DateTimeParameterPb
+    ) -> Self:
+        """Create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        if parameter_type_pb.HasField("default"):
+            try:
+                default = datetime.fromisoformat(parameter_type_pb.default)
+            except TypeError:
+                raise TypeError(
+                    f"Invalid default datetime format, should be string:"
+                    f" {parameter_type_pb.default}"
+                )
+            except ValueError:
+                raise ValueError(f"Invalid default datetime value: {parameter_type_pb.default}")
+        else:
+            default = None
+        return cls(
+            key_name=parameter_pb.key_name,
+            title=parameter_pb.title,
+            description=parameter_pb.description,
+            default=default,
+        )
+
+    @classmethod
+    @override
+    def from_json_config(cls, json_config: dict) -> Self:
+        """Create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        return cls(**json_config)
+
+
+PARAMETER_CLASS_TO_PB_CLASS: dict[
+    type[WorkflowParameter],
+    Union[
+        type[StringParameterPb],
+        type[BooleanParameterPb],
+        type[IntegerParameterPb],
+        type[FloatParameterPb],
+        type[DateTimeParameterPb],
+    ],
+] = {
+    StringParameter: StringParameterPb,
+    BooleanParameter: BooleanParameterPb,
+    IntegerParameter: IntegerParameterPb,
+    FloatParameter: FloatParameterPb,
+    DateTimeParameter: DateTimeParameterPb,
+}
 
 
 @dataclass(eq=True, frozen=True)
@@ -181,53 +482,20 @@ class WorkflowTypeManager:
                         title=_parameter.title,
                         description=_parameter.description,
                     )
-                    if isinstance(_parameter, StringParameter):
-                        string_parameter = StringParameterPb(default=_parameter.default)
-                        if _parameter.enum_options:
-                            for _string_enum in _parameter.enum_options:
-                                string_parameter.enum_options.extend(
-                                    [
-                                        StringEnumPb(
-                                            key_name=_string_enum.key_name,
-                                            display_name=_string_enum.display_name,
-                                        )
-                                    ]
-                                )
-                        parameter_pb.string_parameter.CopyFrom(string_parameter)
-                    elif isinstance(_parameter, BooleanParameter):
-                        parameter_pb.boolean_parameter.CopyFrom(
-                            BooleanParameterPb(
-                                default=_parameter.default,
-                            )
-                        )
-                    elif isinstance(_parameter, IntegerParameter):
-                        parameter_pb.integer_parameter.CopyFrom(
-                            IntegerParameterPb(
-                                default=_parameter.default,
-                                minimum=_parameter.minimum,
-                                maximum=_parameter.maximum,
-                            )
-                        )
-                    elif isinstance(_parameter, FloatParameter):
-                        parameter_pb.float_parameter.CopyFrom(
-                            FloatParameterPb(
-                                default=_parameter.default,
-                                minimum=_parameter.minimum,
-                                maximum=_parameter.maximum,
-                            )
-                        )
-                    elif isinstance(_parameter, DateTimeParameter):
-                        if _parameter.default is None:
-                            default_value = None
-                        else:
-                            default_value = _parameter.default.isoformat()
-                        parameter_pb.datetime_parameter.CopyFrom(
-                            DateTimeParameterPb(default=default_value)
-                        )
-                    else:
-                        raise NotImplementedError(
-                            f"Parameter type {type(_parameter)} not supported"
-                        )
+                    parameter_type_to_pb_type_oneof = {
+                        StringParameter: parameter_pb.string_parameter,
+                        BooleanParameter: parameter_pb.boolean_parameter,
+                        IntegerParameter: parameter_pb.integer_parameter,
+                        FloatParameter: parameter_pb.float_parameter,
+                        DateTimeParameter: parameter_pb.datetime_parameter,
+                    }
+                    for (
+                        parameter_type_class,
+                        parameter_type_oneof,
+                    ) in parameter_type_to_pb_type_oneof.items():
+                        if isinstance(_parameter, parameter_type_class):
+                            parameter_type_oneof.CopyFrom(_parameter.to_pb_message())
+                            break
                     workflow_pb.parameters.extend([parameter_pb])
             available_workflows_pb.workflows.extend([workflow_pb])
         return available_workflows_pb
@@ -243,81 +511,21 @@ class WorkflowTypeManager:
         for workflow_pb in available_workflows_pb.workflows:
             workflow_parameters: list[WorkflowParameter] = []
             for parameter_pb in workflow_pb.parameters:
-                base_args = dict(
-                    key_name=parameter_pb.key_name,
-                    title=parameter_pb.title,
-                    description=parameter_pb.description,
-                )
                 parameter_type_name = parameter_pb.WhichOneof("parameter_type")
                 if parameter_type_name is None:
                     raise TypeError(f"Parameter protobuf message with invalid type: {parameter_pb}")
                 else:
-                    parameter_type = getattr(parameter_pb, parameter_type_name)
+                    one_of_parameter_type_pb = getattr(parameter_pb, parameter_type_name)
 
-                parameter: Union[
-                    StringParameter,
-                    BooleanParameter,
-                    IntegerParameter,
-                    FloatParameter,
-                    DateTimeParameter,
-                ]
-                if isinstance(parameter_type, StringParameterPb):
-                    parameter = StringParameter(
-                        **base_args, default=parameter_type.default, enum_options=[]
-                    )
-                    for enum_option_pb in parameter_type.enum_options:
-                        if parameter.enum_options:
-                            parameter.enum_options.append(
-                                KeyDisplayPair(
-                                    key_name=enum_option_pb.key_name,
-                                    display_name=enum_option_pb.display_name,
-                                )
-                            )
-                elif isinstance(parameter_type, BooleanParameterPb):
-                    parameter = BooleanParameter(**base_args, default=parameter_type.default)
-                elif isinstance(parameter_type, IntegerParameterPb):
-                    parameter = IntegerParameter(
-                        **base_args,
-                        default=parameter_type.default,
-                        minimum=(
-                            parameter_type.minimum if parameter_type.HasField("minimum") else None
-                        ),  # protobuf has '0' default value for int instead of None
-                        maximum=(
-                            parameter_type.maximum if parameter_type.HasField("maximum") else None
-                        ),  # protobuf has '0' default value for int instead of None
-                    )
-                elif isinstance(parameter_type, FloatParameterPb):
-                    parameter = FloatParameter(
-                        **base_args,
-                        default=parameter_type.default,
-                        minimum=(
-                            parameter_type.minimum if parameter_type.HasField("minimum") else None
-                        ),  # protobuf has '0' default value for float instead of None
-                        maximum=(
-                            parameter_type.maximum if parameter_type.HasField("maximum") else None
-                        ),  # protobuf has '0' default value for float instead of None
-                    )
-                elif isinstance(parameter_type, DateTimeParameterPb):
-                    if parameter_type.HasField("default"):
-                        try:
-                            default = datetime.fromisoformat(parameter_type.default)
-                        except TypeError:
-                            raise TypeError(
-                                f"Invalid default datetime format, should be string:"
-                                f" {parameter_type.default}"
-                            )
-                        except ValueError:
-                            raise ValueError(
-                                f"Invalid default datetime value: {parameter_type.default}"
-                            )
-                    else:
-                        default = None
-                    parameter = DateTimeParameter(**base_args, default=default)
-                else:
-                    raise NotImplementedError(
-                        f"Protobuf parameter type {type(parameter_pb)} not supported"
-                    )
-                workflow_parameters.append(parameter)
+                parameter = None
+                for parameter_class, parameter_pb_class in PARAMETER_CLASS_TO_PB_CLASS.items():
+                    if isinstance(one_of_parameter_type_pb, parameter_pb_class):
+                        parameter = parameter_class.from_pb_message(
+                            parameter_pb, one_of_parameter_type_pb
+                        )
+                        break
+                if parameter:
+                    workflow_parameters.append(parameter)
             workflow_types.append(
                 WorkflowType(
                     workflow_type_name=workflow_pb.type_name,
@@ -340,36 +548,17 @@ class WorkflowTypeManager:
         for _workflow in json_config_dict:
             workflow_parameters = []
             if "workflow_parameters" in _workflow:
-                for _parameter in _workflow["workflow_parameters"]:
-                    parameter_type = _parameter["parameter_type"]
-                    _parameter.pop("parameter_type")
+                for parameter_config in _workflow["workflow_parameters"]:
+                    parameter_type_name = parameter_config["parameter_type"]
+                    parameter_config.pop("parameter_type")
 
-                    parameter: WorkflowParameter
-                    if parameter_type == StringParameter.type_name:
-                        if "enum_options" in _parameter:
-                            enum_options = []
-                            for enum_option in _parameter["enum_options"]:
-                                enum_options.append(
-                                    KeyDisplayPair(
-                                        key_name=enum_option["key_name"],
-                                        display_name=enum_option["display_name"],
-                                    )
-                                )
-                            _parameter.pop("enum_options")
-                            parameter = StringParameter(**_parameter, enum_options=enum_options)
-                        else:
-                            parameter = StringParameter(**_parameter)
-                    elif parameter_type == BooleanParameter.type_name:
-                        parameter = BooleanParameter(**_parameter)
-                    elif parameter_type == IntegerParameter.type_name:
-                        parameter = IntegerParameter(**_parameter)
-                    elif parameter_type == FloatParameter.type_name:
-                        parameter = FloatParameter(**_parameter)
-                    elif parameter_type == DateTimeParameter.type_name:
-                        parameter = DateTimeParameter(**_parameter)
-                    else:
-                        raise NotImplementedError(f"Parameter type {parameter_type} not supported")
-                    workflow_parameters.append(parameter)
+                    for parameter_type_class in PARAMETER_CLASS_TO_PB_CLASS:
+                        if parameter_type_class.type_name == parameter_type_name:
+                            workflow_parameters.append(
+                                parameter_type_class.from_json_config(parameter_config)
+                            )
+                            break
+
             workflow_types.append(
                 WorkflowType(
                     workflow_type_name=_workflow["workflow_type_name"],

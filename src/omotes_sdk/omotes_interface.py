@@ -1,5 +1,5 @@
 import logging
-import time
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
@@ -92,6 +92,8 @@ class OmotesInterface:
     """Interface to RabbitMQ broker."""
     workflow_type_manager: WorkflowTypeManager | None
     """All available workflow types."""
+    _workflow_config_received: threading.Event
+    """Event triggered when workflow configuration is received."""
 
     def __init__(
         self,
@@ -106,6 +108,7 @@ class OmotesInterface:
         """
         self.broker_if = BrokerInterface(rabbitmq_config)
         self.workflow_type_manager = None
+        self._workflow_config_received = threading.Event()
 
     def start(self) -> None:
         """Start any other interfaces and request available workflows."""
@@ -113,9 +116,9 @@ class OmotesInterface:
         self.connect_to_available_workflows_updates()
         self.request_available_workflows()
 
-        while not self.workflow_type_manager:
+        while not self._workflow_config_received.is_set():
             logger.info("Waiting for workflow definitions to be received from the orchestrator...")
-            time.sleep(5)
+            self._workflow_config_received.wait(timeout=5)
 
     def stop(self) -> None:
         """Stop any other interfaces."""
@@ -278,6 +281,7 @@ class OmotesInterface:
         available_workflows_pb = AvailableWorkflows()
         available_workflows_pb.ParseFromString(message)
         self.workflow_type_manager = WorkflowTypeManager.from_pb_message(available_workflows_pb)
+        self._workflow_config_received.set()
         logger.info("Updated the available workflows")
 
     def request_available_workflows(self) -> None:
