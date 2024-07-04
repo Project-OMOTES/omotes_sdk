@@ -2,7 +2,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List, Optional, Dict, Union, Any
+from typing import List, Optional, Dict, Union, Any, Type
 from typing_extensions import Self, override
 
 from omotes_sdk_protocol.workflow_pb2 import (
@@ -398,13 +398,13 @@ class DateTimeParameter(WorkflowParameter):
 
 
 PARAMETER_CLASS_TO_PB_CLASS: dict[
-    type[WorkflowParameter],
+    Type[WorkflowParameter],
     Union[
-        type[StringParameterPb],
-        type[BooleanParameterPb],
-        type[IntegerParameterPb],
-        type[FloatParameterPb],
-        type[DateTimeParameterPb],
+        Type[StringParameterPb],
+        Type[BooleanParameterPb],
+        Type[IntegerParameterPb],
+        Type[FloatParameterPb],
+        Type[DateTimeParameterPb],
     ],
 ] = {
     StringParameter: StringParameterPb,
