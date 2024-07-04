@@ -9,8 +9,7 @@
     "workflow_parameters": [
       {
         "parameter_type": "datetime",
-        "key_name": "start_time",
-        "default": "2023-12-31T20:00:00"
+        "key_name": "start_time"
       },
       {
         "parameter_type": "datetime",
@@ -40,8 +39,7 @@
             "display_name": "Display name 1"
           },
           {
-            "key_name": "key2",
-            "display_name": "Display name 2"
+            "key_name": "key2"
           }
         ]
       }

@@ -70,19 +70,6 @@ class WorkflowParameter(ABC):
         """
         pass
 
-    def __post_init__(self) -> None:
-        """Check parameter format."""
-        for name, field_type in self.__annotations__.items():
-            # Do not check dataclasses (like StringEnumOption)
-            if "StringEnumOption" not in str(field_type) and not isinstance(
-                self.__dict__[name], field_type
-            ):
-                current_type = type(self.__dict__[name])
-                raise TypeError(
-                    f"The field `{name}` was assigned by `{current_type}` ('{self.__dict__[name]}')"
-                    f" instead of `{field_type}`"
-                )
-
 
 @dataclass(eq=True, frozen=True)
 class StringEnumOption:
@@ -162,9 +149,24 @@ class StringParameter(WorkflowParameter):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
+        if "default" in json_config and not isinstance(json_config["default"], str):
+            raise TypeError("'default' for StringParameter must be in 'str' format")
+
+        if "enum_options" in json_config and not isinstance(json_config["enum_options"], List):
+            raise TypeError("'enum_options' for StringParameter must be a 'list'")
+
         if "enum_options" in json_config:
             enum_options = []
             for enum_option in json_config["enum_options"]:
+                enum_keys = ["key_name", "display_name"]
+                for enum_key in enum_keys:
+                    if enum_key not in enum_option:
+                        raise TypeError(f"A string enum option must contain a '{enum_key}'")
+                    if enum_key in json_config and not isinstance(json_config[enum_key], str):
+                        raise TypeError(
+                            f"'{enum_key}' for a string enum option must be in 'str' format:"
+                            f" '{json_config[enum_key]}"
+                        )
                 enum_options.append(
                     StringEnumOption(
                         key_name=enum_option["key_name"],
@@ -220,6 +222,11 @@ class BooleanParameter(WorkflowParameter):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
+        if "default" in json_config and not isinstance(json_config["default"], bool):
+            raise TypeError(
+                f"'default' for BooleanParameter must be in 'bool' format:"
+                f" '{json_config['default']}'"
+            )
         return cls(**json_config)
 
 
@@ -276,6 +283,13 @@ class IntegerParameter(WorkflowParameter):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
+        int_params = ["default", "minimum", "maximum"]
+        for int_param in int_params:
+            if int_param in json_config and not isinstance(json_config[int_param], int):
+                raise TypeError(
+                    f"'{int_param}' for IntegerParameter must be in 'int' format:"
+                    f" '{json_config[int_param]}'"
+                )
         return cls(**json_config)
 
 
@@ -332,6 +346,18 @@ class FloatParameter(WorkflowParameter):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
+        float_params = ["default", "minimum", "maximum"]
+        for float_param in float_params:
+            if (
+                float_param in json_config
+                and not isinstance(json_config[float_param], float)
+                and not isinstance(json_config[float_param], int)
+            ):
+                raise TypeError(
+                    f"'{float_param}' for FloatParameter must be in 'float' format:"
+                    f" '{json_config[float_param]}'"
+                )
+
         return cls(**json_config)
 
 
@@ -372,11 +398,9 @@ class DateTimeParameter(WorkflowParameter):
                 default = datetime.fromisoformat(parameter_type_pb.default)
             except TypeError:
                 raise TypeError(
-                    f"Invalid default datetime format, should be string:"
+                    f"Invalid default datetime format, should be a string in ISO format:"
                     f" {parameter_type_pb.default}"
                 )
-            except ValueError:
-                raise ValueError(f"Invalid default datetime value: {parameter_type_pb.default}")
         else:
             default = None
         return cls(
@@ -394,6 +418,16 @@ class DateTimeParameter(WorkflowParameter):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
+        if "default" in json_config:
+            try:
+                default = datetime.fromisoformat(json_config["default"])
+            except TypeError:
+                raise TypeError(
+                    f"Invalid default datetime format, should be a string in ISO format:"
+                    f" '{json_config['default']}'"
+                )
+            json_config["default"] = default
+
         return cls(**json_config)
 
 
