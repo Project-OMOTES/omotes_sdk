@@ -62,7 +62,7 @@ class WorkflowParameter(ABC):
 
     @classmethod
     @abstractmethod
-    def from_json_config(cls, json_config: dict) -> Self:
+    def from_json_config(cls, json_config: Dict) -> Self:
         """Abstract function to create a class instance from json configuration.
 
         :param json_config: dictionary with configuration.
@@ -156,7 +156,7 @@ class StringParameter(WorkflowParameter):
 
     @classmethod
     @override
-    def from_json_config(cls, json_config: dict) -> Self:
+    def from_json_config(cls, json_config: Dict) -> Self:
         """Create a class instance from json configuration.
 
         :param json_config: dictionary with configuration.
@@ -214,7 +214,7 @@ class BooleanParameter(WorkflowParameter):
 
     @classmethod
     @override
-    def from_json_config(cls, json_config: dict) -> Self:
+    def from_json_config(cls, json_config: Dict) -> Self:
         """Create a class instance from json configuration.
 
         :param json_config: dictionary with configuration.
@@ -270,7 +270,7 @@ class IntegerParameter(WorkflowParameter):
 
     @classmethod
     @override
-    def from_json_config(cls, json_config: dict) -> Self:
+    def from_json_config(cls, json_config: Dict) -> Self:
         """Create a class instance from json configuration.
 
         :param json_config: dictionary with configuration.
@@ -326,7 +326,7 @@ class FloatParameter(WorkflowParameter):
 
     @classmethod
     @override
-    def from_json_config(cls, json_config: dict) -> Self:
+    def from_json_config(cls, json_config: Dict) -> Self:
         """Create a class instance from json configuration.
 
         :param json_config: dictionary with configuration.
@@ -388,7 +388,7 @@ class DateTimeParameter(WorkflowParameter):
 
     @classmethod
     @override
-    def from_json_config(cls, json_config: dict) -> Self:
+    def from_json_config(cls, json_config: Dict) -> Self:
         """Create a class instance from json configuration.
 
         :param json_config: dictionary with configuration.
@@ -397,7 +397,7 @@ class DateTimeParameter(WorkflowParameter):
         return cls(**json_config)
 
 
-PARAMETER_CLASS_TO_PB_CLASS: dict[
+PARAMETER_CLASS_TO_PB_CLASS: Dict[
     Type[WorkflowParameter],
     Union[
         Type[StringParameterPb],
