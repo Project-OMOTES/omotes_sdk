@@ -1,4 +1,3 @@
-from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -398,7 +397,7 @@ class DateTimeParameter(WorkflowParameter):
         return cls(**json_config)
 
 
-PARAMETER_CLASS_TO_PB_CLASS: Dict[
+PARAMETER_CLASS_TO_PB_CLASS: dict[
     Type[WorkflowParameter],
     Union[
         Type[StringParameterPb],
