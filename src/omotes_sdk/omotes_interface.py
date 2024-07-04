@@ -3,7 +3,7 @@ import threading
 import uuid
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 from google.protobuf.struct_pb2 import Struct
 
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
@@ -90,7 +90,7 @@ class OmotesInterface:
 
     broker_if: BrokerInterface
     """Interface to RabbitMQ broker."""
-    workflow_type_manager: WorkflowTypeManager | None
+    workflow_type_manager: Union[WorkflowTypeManager, None]
     """All available workflow types."""
     _workflow_config_received: threading.Event
     """Event triggered when workflow configuration is received."""
