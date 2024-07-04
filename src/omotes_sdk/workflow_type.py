@@ -102,7 +102,7 @@ class StringParameter(WorkflowParameter):
     """Parameter type name."""
     default: Union[str, None] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    enum_options: Union[list[StringEnumOption], None] = field(
+    enum_options: Union[List[StringEnumOption], None] = field(
         default=None, hash=False, compare=False
     )
     """Optional multiple choice values."""
@@ -510,7 +510,7 @@ class WorkflowTypeManager:
         """
         workflow_types = []
         for workflow_pb in available_workflows_pb.workflows:
-            workflow_parameters: list[WorkflowParameter] = []
+            workflow_parameters: List[WorkflowParameter] = []
             for parameter_pb in workflow_pb.parameters:
                 parameter_type_name = parameter_pb.WhichOneof("parameter_type")
                 if parameter_type_name is None:
