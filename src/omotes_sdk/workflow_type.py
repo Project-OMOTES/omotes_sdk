@@ -397,7 +397,7 @@ class DateTimeParameter(WorkflowParameter):
         return cls(**json_config)
 
 
-PARAMETER_CLASS_TO_PB_CLASS: dict[
+PARAMETER_CLASS_TO_PB_CLASS: Dict[
     Type[WorkflowParameter],
     Union[
         Type[StringParameterPb],
