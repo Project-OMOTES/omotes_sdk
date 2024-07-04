@@ -74,7 +74,6 @@ class WorkflowParameter(ABC):
         """Check parameter format."""
         for name, field_type in self.__annotations__.items():
             # Do not check dataclasses (like StringEnumOption)
-            # TODO better way of checking that 'field_type' is dataclass?
             if "StringEnumOption" not in str(field_type) and not isinstance(
                 self.__dict__[name], field_type
             ):

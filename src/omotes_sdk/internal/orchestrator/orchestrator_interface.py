@@ -116,7 +116,7 @@ class OrchestratorInterface:
         self.connect_to_request_available_workflows(
             callback_on_request_workflows=self.request_workflows_handler
         )
-        self.send_available_workflows(self.workflow_type_manager)
+        self.send_available_workflows()
 
     def stop(self) -> None:
         """Stop the orchestrator interface."""
@@ -198,14 +198,11 @@ class OrchestratorInterface:
         :param request_workflows: Request available work flows.
         """
         logger.info("Received an available workflows request")
-        self.send_available_workflows(self.workflow_type_manager)
+        self.send_available_workflows()
 
-    def send_available_workflows(self, workflow_type_manager: WorkflowTypeManager) -> None:
-        """Send the available workflows to the SDK.
-
-        :param workflow_type_manager: Job to which the result belongs.
-        """
-        work_type_manager_pb = workflow_type_manager.to_pb_message()
+    def send_available_workflows(self) -> None:
+        """Send the available workflows to the SDK."""
+        work_type_manager_pb = self.workflow_type_manager.to_pb_message()
         self.broker_if.send_message_to(
             OmotesQueueNames.available_workflows_queue_name(),
             work_type_manager_pb.SerializeToString(),
