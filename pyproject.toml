@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "aio-pika ~= 9.3.1",
+    "aio-pika ~= 9.4.2",
     "omotes-sdk-protocol ~= 0.0.8",
     "celery ~= 5.3.6",
     #"streamcapture ~= 1.2.3", TODO: See #4, this is reenabled once streamcapture removes AGPL dependency
