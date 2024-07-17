@@ -8,7 +8,7 @@ import threading
 from types import TracebackType
 from typing import Callable, Optional, Dict, Type
 
-from aio_pika import connect_robust, Message
+from aio_pika import connect_robust, Message, DeliveryMode
 from aio_pika.abc import (
     AbstractRobustConnection,
     AbstractChannel,
@@ -160,7 +160,9 @@ class BrokerInterface(threading.Thread):
     async def _send_message_to(self, queue_name: str, message: bytes) -> None:
         """Publish a message to a specific queue assuming the routing key equals the queue name."""
         logger.debug("Sending a message to %s containing: %s", queue_name, message)
-        await self._channel.default_exchange.publish(Message(body=message), routing_key=queue_name)
+        await self._channel.default_exchange.publish(
+            Message(body=message, delivery_mode=DeliveryMode.PERSISTENT), routing_key=queue_name
+        )
 
     async def _add_queue_subscription(
         self, queue_name: str, callback_on_message: Callable[[bytes], None]
