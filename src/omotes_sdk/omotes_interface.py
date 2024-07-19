@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Callable, Optional, Union
 from google.protobuf.struct_pb2 import Struct
 
-from omotes_sdk.internal.common.broker_interface import BrokerInterface
+from omotes_sdk.internal.common.broker_interface import BrokerInterface, AMQPQueueType
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk_protocol.job_pb2 import (
     JobResult,
@@ -94,24 +94,26 @@ class OmotesInterface:
     """All available workflow types."""
     _workflow_config_received: threading.Event
     """Event triggered when workflow configuration is received."""
+    client_id: str
+    """Identifier of this SDK instance. Should be unique from other SDKs."""
 
-    def __init__(
-        self,
-        rabbitmq_config: RabbitMQConfig,
-    ):
+    def __init__(self, rabbitmq_config: RabbitMQConfig, client_id: str):
         """Create the OMOTES interface.
 
         NOTE: Needs to be started separately.
 
         :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
+        :param client_id: Identifier of this SDK instance. Should be unique from other SDKs.
         """
         self.broker_if = BrokerInterface(rabbitmq_config)
         self.workflow_type_manager = None
         self._workflow_config_received = threading.Event()
+        self.client_id = client_id
 
     def start(self) -> None:
         """Start any other interfaces and request available workflows."""
         self.broker_if.start()
+        self.broker_if.declare_exchange(OmotesQueueNames.omotes_exchange_name())
         self.connect_to_available_workflows_updates()
         self.request_available_workflows()
 
@@ -128,9 +130,7 @@ class OmotesInterface:
 
         :param job: Job to disconnect from.
         """
-        self.broker_if.remove_queue_next_message_subscription(
-            OmotesQueueNames.job_results_queue_name(job)
-        )
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_results_queue_name(job))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
 
@@ -169,21 +169,26 @@ class OmotesInterface:
             auto_disconnect_handler,
         )
 
-        self.broker_if.receive_next_message(
+        self.broker_if.add_queue_subscription(
             queue_name=OmotesQueueNames.job_results_queue_name(job),
-            timeout=None,
             callback_on_message=callback_handler.callback_on_finished_wrapped,
-            callback_on_no_message=None,
+            queue_type=AMQPQueueType.DURABLE,
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+            disconnect_after_messages=1,
         )
         if callback_on_progress_update:
             self.broker_if.add_queue_subscription(
                 queue_name=OmotesQueueNames.job_progress_queue_name(job),
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
+                queue_type=AMQPQueueType.DURABLE,
+                exchange_name=OmotesQueueNames.omotes_exchange_name(),
             )
         if callback_on_status_update:
             self.broker_if.add_queue_subscription(
                 queue_name=OmotesQueueNames.job_status_queue_name(job),
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
+                queue_type=AMQPQueueType.DURABLE,
+                exchange_name=OmotesQueueNames.omotes_exchange_name(),
             )
 
     def submit_job(
@@ -243,6 +248,7 @@ class OmotesInterface:
             params_dict=params_dict_struct,
         )
         self.broker_if.send_message_to(
+            OmotesQueueNames.omotes_exchange_name(),
             OmotesQueueNames.job_submission_queue_name(workflow_type),
             message=job_submission_msg.SerializeToString(),
         )
@@ -262,14 +268,19 @@ class OmotesInterface:
         logger.info("Cancelling job %s", job.id)
         cancel_msg = JobCancel(uuid=str(job.id))
         self.broker_if.send_message_to(
-            OmotesQueueNames.job_cancel_queue_name(), message=cancel_msg.SerializeToString()
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+            routing_key=OmotesQueueNames.job_cancel_queue_name(),
+            message=cancel_msg.SerializeToString(),
         )
 
     def connect_to_available_workflows_updates(self) -> None:
         """Connect to updates of the available workflows."""
         self.broker_if.add_queue_subscription(
-            queue_name=OmotesQueueNames.available_workflows_queue_name(),
+            queue_name=OmotesQueueNames.available_workflows_queue_name(self.client_id),
             callback_on_message=self.callback_on_update_available_workflows,
+            queue_type=AMQPQueueType.EXCLUSIVE,
+            bind_to_routing_key=OmotesQueueNames.available_workflows_routing_key(),
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
         )
 
     def callback_on_update_available_workflows(self, message: bytes) -> None:
@@ -287,8 +298,9 @@ class OmotesInterface:
         """Request the available workflows from the orchestrator."""
         request_available_workflows_pb = RequestAvailableWorkflows()
         self.broker_if.send_message_to(
-            OmotesQueueNames.request_available_workflows_queue_name(),
-            request_available_workflows_pb.SerializeToString(),
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+            routing_key=OmotesQueueNames.request_available_workflows_queue_name(),
+            message=request_available_workflows_pb.SerializeToString(),
         )
 
     def get_workflow_type_manager(self) -> WorkflowTypeManager:
