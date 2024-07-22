@@ -134,6 +134,10 @@ class OmotesInterface:
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
 
+    def _autodelete_progres_status_queues_on_result(self, job: Job):
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
+
     def connect_to_submitted_job(
         self,
         job: Job,
@@ -152,11 +156,12 @@ class OmotesInterface:
         :param callback_on_progress_update: Called when there is a progress update for the job.
         :param callback_on_status_update: Called when there is a status update for the job.
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
-        once the result is received and handled without exceptions through `callback_on_finished`.
+            once the result is received and handled without exceptions through
+            `callback_on_finished`.
         """
         if auto_disconnect_on_result:
             logger.info("Connecting to update for job %s with auto disconnect on result", job.id)
-            auto_disconnect_handler = self.disconnect_from_submitted_job
+            auto_disconnect_handler = self._autodelete_progres_status_queues_on_result
         else:
             logger.info("Connecting to update for job %s and expect manual disconnect", job.id)
             auto_disconnect_handler = None
@@ -174,7 +179,7 @@ class OmotesInterface:
             callback_on_message=callback_handler.callback_on_finished_wrapped,
             queue_type=AMQPQueueType.DURABLE,
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
-            disconnect_after_messages=1,
+            delete_after_messages=1,
         )
         if callback_on_progress_update:
             self.broker_if.add_queue_subscription(

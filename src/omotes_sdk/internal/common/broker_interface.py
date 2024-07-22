@@ -29,8 +29,8 @@ class QueueSubscriptionConsumer:
 
     queue: AbstractQueue
     """The queue to which is subscribed."""
-    disconnect_after_messages: Optional[int]
-    """Disconnect the subscription after successfully processing this amount of messages"""
+    delete_after_messages: Optional[int]
+    """Delete the subscription & queue after successfully processing this amount of messages"""
     callback_on_message: Callable[[bytes], None]
     """Callback which is called on each message."""
 
@@ -41,6 +41,7 @@ class QueueSubscriptionConsumer:
         function which is executed from the executor threadpool.
         """
         number_of_messages_processed = 0
+        delete_queue = False
         async with self.queue.iterator() as queue_iter:
             message: AbstractIncomingMessage
             async for message in queue_iter:
@@ -56,10 +57,26 @@ class QueueSubscriptionConsumer:
                     number_of_messages_processed += 1
 
                     if (
-                        self.disconnect_after_messages is not None
-                        and number_of_messages_processed >= self.disconnect_after_messages
+                        self.delete_after_messages is not None
+                        and number_of_messages_processed >= self.delete_after_messages
                     ):
+                        logger.debug(
+                            "Successful message threshold %s reached for queue %s. "
+                            "Stopping subscription and deleting queue.",
+                            self.delete_after_messages,
+                            self.queue.name,
+                        )
+                        delete_queue = True
                         break
+        logger.debug(
+            "Stopping subscription on queue %s. Processed %s messages.",
+            self.queue.name,
+            number_of_messages_processed,
+        )
+
+        if delete_queue:
+            logger.debug("Deleting queue %s", self.queue.name)
+            await self.queue.delete()
 
 
 class AMQPQueueType(Enum):
@@ -192,7 +209,7 @@ class BrokerInterface(threading.Thread):
         queue_type: AMQPQueueType,
         bind_to_routing_key: Optional[str] = None,
         exchange_name: Optional[str] = None,
-        disconnect_after_messages: Optional[int] = None,
+        delete_after_messages: Optional[int] = None,
     ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
@@ -204,7 +221,7 @@ class BrokerInterface(threading.Thread):
             key of the queue name. If none, the queue is only bound to the name of the queue.
             If not none, then the exchange_name must be set as well.
         :param exchange_name: Name of the exchange on which the messages will be published.
-        :param disconnect_after_messages: Disconnect the subscription after this limit of messages
+        :param delete_after_messages: Delete the subscription & queue after this limit of messages
             have been successfully processed.
         """
         if queue_name in self._queue_subscription_consumer_by_name:
@@ -233,7 +250,7 @@ class BrokerInterface(threading.Thread):
             await queue.bind(exchange=exchange, routing_key=bind_to_routing_key)
 
         queue_consumer = QueueSubscriptionConsumer(
-            queue, disconnect_after_messages, callback_on_message
+            queue, delete_after_messages, callback_on_message
         )
         self._queue_subscription_consumer_by_name[queue_name] = queue_consumer
 
@@ -341,7 +358,7 @@ class BrokerInterface(threading.Thread):
         queue_type: AMQPQueueType,
         bind_to_routing_key: Optional[str] = None,
         exchange_name: Optional[str] = None,
-        disconnect_after_messages: Optional[int] = None,
+        delete_after_messages: Optional[int] = None,
     ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
@@ -352,7 +369,7 @@ class BrokerInterface(threading.Thread):
         :param bind_to_routing_key: Bind the queue to this routing key next to the default routing key of the queue
             name. If none, the queue is only bound to the name of the queue.
         :param exchange_name: Name of the exchange on which the messages will be published.
-        :param disconnect_after_messages: Disconnect the subscription after this limit of messages
+        :param delete_after_messages: Delete the subscription & queue after this limit of messages
             have been successfully processed.
         """
         asyncio.run_coroutine_threadsafe(
@@ -362,7 +379,7 @@ class BrokerInterface(threading.Thread):
                 queue_type=queue_type,
                 bind_to_routing_key=bind_to_routing_key,
                 exchange_name=exchange_name,
-                disconnect_after_messages=disconnect_after_messages,
+                delete_after_messages=delete_after_messages,
             ),
             self._loop,
         ).result()
