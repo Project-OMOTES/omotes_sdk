@@ -7,7 +7,7 @@ from enum import Enum
 from functools import partial
 import threading
 from types import TracebackType
-from typing import Callable, Optional, Dict, Type
+from typing import Callable, Optional, Dict, Type, TypedDict
 
 from aio_pika import connect_robust, Message, DeliveryMode
 from aio_pika.abc import (
@@ -79,6 +79,14 @@ class QueueSubscriptionConsumer:
             await self.queue.delete()
 
 
+class AioPikaQueueTypeArguments(TypedDict, total=False):
+    """The keyword arguments which may be used in aio-pika `AbstractChannel.declare_queue`."""
+
+    exclusive: bool
+    auto_delete: bool
+    durable: bool
+
+
 class AMQPQueueType(Enum):
     """The RabbitMQ AMQP queue types."""
 
@@ -86,13 +94,13 @@ class AMQPQueueType(Enum):
     AUTO_DELETE = "auto_delete"
     DURABLE = "durable"
 
-    def to_argument(self) -> Dict[str, bool]:
+    def to_argument(self) -> AioPikaQueueTypeArguments:
         """Convert the RabbitMQ AMQP queue type to the aio-pika `declare_queue` keyword arguments.
 
         :return: The keyword arguments which may be used in `AbstractChannel.declare_queue` of the
             aio-pika library.
         """
-        result = {}
+        result = AioPikaQueueTypeArguments()
         if self == AMQPQueueType.EXCLUSIVE:
             result["exclusive"] = True
         elif self == AMQPQueueType.AUTO_DELETE:

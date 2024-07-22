@@ -134,7 +134,8 @@ class OmotesInterface:
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
 
-    def _autodelete_progres_status_queues_on_result(self, job: Job):
+    def _autodelete_progres_status_queues_on_result(self, job: Job) -> None:
+        """Disconnect and delete the progress and status queues for some job."""
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
 
