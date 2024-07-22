@@ -117,9 +117,13 @@ class OmotesInterface:
         self.connect_to_available_workflows_updates()
         self.request_available_workflows()
 
-        while not self._workflow_config_received.is_set():
-            logger.info("Waiting for workflow definitions to be received from the orchestrator...")
-            self._workflow_config_received.wait(timeout=5)
+        logger.info("Waiting for workflow definitions to be received from the orchestrator...")
+        if not self._workflow_config_received.wait(timeout=60):
+            raise RuntimeError(
+                "The orchestrator did not send the available workflows within "
+                "the expected time. Is the orchestrator online and connected "
+                "to the broker?"
+            )
 
     def stop(self) -> None:
         """Stop any other interfaces."""
