@@ -3,7 +3,7 @@ from omotes_sdk.workflow_type import WorkflowType
 
 
 class OmotesQueueNames:
-    """Container for definition of OMOTES SDK to Orchestrator queue names, routing keys and exchange names."""
+    """Container for OMOTES SDK to Orchestrator queue names, routing keys and exchange names."""
 
     @staticmethod
     def omotes_exchange_name() -> str:
@@ -65,7 +65,7 @@ class OmotesQueueNames:
 
         :return: The routing key.
         """
-        return f"available_workflows"
+        return "available_workflows"
 
     @staticmethod
     def available_workflows_queue_name(client_id: str) -> str:

@@ -80,11 +80,18 @@ class QueueSubscriptionConsumer:
 
 
 class AMQPQueueType(Enum):
+    """The RabbitMQ AMQP queue types."""
+
     EXCLUSIVE = "exclusive"
     AUTO_DELETE = "auto_delete"
     DURABLE = "durable"
 
     def to_argument(self) -> Dict[str, bool]:
+        """Convert the RabbitMQ AMQP queue type to the aio-pika `declare_queue` keyword arguments.
+
+        :return: The keyword arguments which may be used in `AbstractChannel.declare_queue` of the
+            aio-pika library.
+        """
         result = {}
         if self == AMQPQueueType.EXCLUSIVE:
             result["exclusive"] = True
@@ -178,7 +185,6 @@ class BrokerInterface(threading.Thread):
             routing key to which multiple queues are bound or the queue name (default routing key).
         :param message: The message to publish.
         """
-
         amqp_message = Message(body=message, delivery_mode=DeliveryMode.PERSISTENT)
 
         if exchange_name is None:
@@ -366,8 +372,8 @@ class BrokerInterface(threading.Thread):
         :param callback_on_message: Callback which is called from a separate thread to process the
             message body.
         :param queue_type: Declare the queue using one of the known queue types.
-        :param bind_to_routing_key: Bind the queue to this routing key next to the default routing key of the queue
-            name. If none, the queue is only bound to the name of the queue.
+        :param bind_to_routing_key: Bind the queue to this routing key next to the default routing
+            key of the queue name. If none, the queue is only bound to the name of the queue.
         :param exchange_name: Name of the exchange on which the messages will be published.
         :param delete_after_messages: Delete the subscription & queue after this limit of messages
             have been successfully processed.
