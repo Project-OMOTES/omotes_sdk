@@ -23,7 +23,7 @@ class MissingFieldTypeException(Exception):
     ...
 
 
-PBStructCompatibleTypes = Union[List["PBStructCompatibleTypes"], float, str, bool]
+PBStructCompatibleTypes = Union[list, float, str, bool]
 
 
 def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
@@ -41,6 +41,8 @@ def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
             normalized_dict[key] = value.timestamp()
         elif isinstance(value, timedelta):
             normalized_dict[key] = value.total_seconds()
+        elif isinstance(value, int):
+            normalized_dict[key] = float(value)
         elif isinstance(value, get_args(PBStructCompatibleTypes)):
             normalized_dict[key] = value
         else:
@@ -86,6 +88,8 @@ def parse_workflow_config_parameter(
         # `workflow_config[field_key]` according to the type checker. However, we have confirmed
         # the type already so we may cast it.
         result = cast(ParamsDictValue, maybe_value)
+    elif is_present and type(maybe_value) is float and expected_type is bool:
+        result = bool(maybe_value)
     elif is_present and type(maybe_value) is float and expected_type is datetime:
         result = cast(ParamsDictValue, datetime.fromtimestamp(maybe_value))
     elif is_present and type(maybe_value) is float and expected_type is timedelta:
@@ -106,7 +110,7 @@ def parse_workflow_config_parameter(
                 maybe_value,
                 result,
             )
-    elif default_value:
+    elif default_value is not None:
         result = default_value
         if is_present and not isinstance(maybe_value, expected_type):
             logger.warning(
