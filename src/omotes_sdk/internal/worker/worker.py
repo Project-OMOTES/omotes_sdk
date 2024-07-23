@@ -57,6 +57,7 @@ class TaskUtil:
             message,
         )
         self.broker_if.send_message_to(
+            None,
             WORKER.config.task_progress_queue_name,
             TaskProgressUpdate(
                 job_id=str(self.job_id),
@@ -156,6 +157,7 @@ class WorkerTask(CeleryTask):
         if result_message:
             logger.debug("Sending result for job %s", job_id)
             self.broker_if.send_message_to(
+                None,
                 WORKER.config.task_result_queue_name,
                 result_message.SerializeToString(),
             )

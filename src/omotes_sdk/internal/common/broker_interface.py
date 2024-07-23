@@ -3,10 +3,11 @@ import logging
 from asyncio import Task
 from concurrent.futures import Future
 from dataclasses import dataclass
+from enum import Enum
 from functools import partial
 import threading
 from types import TracebackType
-from typing import Callable, Optional, Dict, Type
+from typing import Callable, Optional, Dict, Type, TypedDict
 
 from aio_pika import connect_robust, Message, DeliveryMode
 from aio_pika.abc import (
@@ -14,6 +15,7 @@ from aio_pika.abc import (
     AbstractChannel,
     AbstractQueue,
     AbstractIncomingMessage,
+    AbstractExchange,
 )
 
 from omotes_sdk.config import RabbitMQConfig
@@ -27,6 +29,8 @@ class QueueSubscriptionConsumer:
 
     queue: AbstractQueue
     """The queue to which is subscribed."""
+    delete_after_messages: Optional[int]
+    """Delete the subscription & queue after successfully processing this amount of messages"""
     callback_on_message: Callable[[bytes], None]
     """Callback which is called on each message."""
 
@@ -36,6 +40,8 @@ class QueueSubscriptionConsumer:
         Requeue in case the handler generates an exception. Callback is a synchronous
         function which is executed from the executor threadpool.
         """
+        number_of_messages_processed = 0
+        delete_queue = False
         async with self.queue.iterator() as queue_iter:
             message: AbstractIncomingMessage
             async for message in queue_iter:
@@ -48,53 +54,63 @@ class QueueSubscriptionConsumer:
                     await asyncio.get_running_loop().run_in_executor(
                         None, partial(self.callback_on_message, message.body)
                     )
+                    number_of_messages_processed += 1
 
-
-@dataclass
-class QueueSingleMessageConsumer:
-    """Retrieves a single message from a queue and processes the message using a callback.
-
-    NOTE: Will only work if a single message is expected to publish to the queue. Otherwise, the
-    consumer subscription may receive multiple messages and a number of messages will be lost.
-    Only the first message will be accepted and processed.
-    """
-
-    queue: AbstractQueue
-    """The queue to which is subscribed."""
-    timeout: Optional[float]
-    """Time to wait for message to arrive in seconds."""
-    callback_on_message: Callable[[bytes], None]
-    """Callback which is called when the message is received."""
-    callback_on_no_message: Optional[Callable[[], None]]
-    """Callback which is called when no message is received in the alloted time."""
-
-    async def run(self) -> None:
-        """Retrieve a single message from the AMQP queue and run the callback on the message.
-
-        Requeue in case the handler generates an exception. Callback is a synchronous
-        function which is executed from the executor threadpool.
-
-        As a `queue.iterator()` is used, an AMQP Consumption subscription is created rather than
-        an AMQP Get request. This allows this consumer to wait until a message is received instead
-        of working on a polling basis.
-        """
+                    if (
+                        self.delete_after_messages is not None
+                        and number_of_messages_processed >= self.delete_after_messages
+                    ):
+                        logger.debug(
+                            "Successful message threshold %s reached for queue %s. "
+                            "Stopping subscription and deleting queue.",
+                            self.delete_after_messages,
+                            self.queue.name,
+                        )
+                        delete_queue = True
+                        break
         logger.debug(
-            "Waiting for next message on queue %s with timeout %s", self.queue.name, self.timeout
+            "Stopping subscription on queue %s. Processed %s messages.",
+            self.queue.name,
+            number_of_messages_processed,
         )
-        async with self.queue.iterator() as queue_iter:
-            try:
-                message = await asyncio.wait_for(queue_iter.__anext__(), timeout=self.timeout)
-            except TimeoutError:
-                if self.callback_on_no_message:
-                    asyncio.get_running_loop().run_in_executor(None, self.callback_on_no_message)
-            else:
-                async with message.process(requeue=True):
-                    logger.debug(
-                        "Received next message on queue %s: %s", self.queue.name, message.body
-                    )
-                    await asyncio.get_running_loop().run_in_executor(
-                        None, partial(self.callback_on_message, message.body)
-                    )
+
+        if delete_queue:
+            logger.debug("Deleting queue %s", self.queue.name)
+            await self.queue.delete()
+
+
+class AioPikaQueueTypeArguments(TypedDict, total=False):
+    """The keyword arguments which may be used in aio-pika `AbstractChannel.declare_queue`."""
+
+    exclusive: bool
+    auto_delete: bool
+    durable: bool
+
+
+class AMQPQueueType(Enum):
+    """The RabbitMQ AMQP queue types."""
+
+    EXCLUSIVE = "exclusive"
+    AUTO_DELETE = "auto_delete"
+    DURABLE = "durable"
+
+    def to_argument(self) -> AioPikaQueueTypeArguments:
+        """Convert the RabbitMQ AMQP queue type to the aio-pika `declare_queue` keyword arguments.
+
+        :return: The keyword arguments which may be used in `AbstractChannel.declare_queue` of the
+            aio-pika library.
+        """
+        result = AioPikaQueueTypeArguments()
+        if self == AMQPQueueType.EXCLUSIVE:
+            result["exclusive"] = True
+        elif self == AMQPQueueType.AUTO_DELETE:
+            result["auto_delete"] = True
+        elif self == AMQPQueueType.DURABLE:
+            result["durable"] = True
+        else:
+            raise RuntimeError(f"Unknown AMQP queue type {self}")
+
+        return result
 
 
 class BrokerInterface(threading.Thread):
@@ -112,12 +128,12 @@ class BrokerInterface(threading.Thread):
     """AMQP connection."""
     _channel: AbstractChannel
     """AMQP channel."""
+    _exchanges: Dict[str, AbstractExchange]
+    """Exchanges declared in this connection."""
     _queue_subscription_consumer_by_name: Dict[str, QueueSubscriptionConsumer]
     """Task to consume messages when they are received ordered by queue name."""
     _queue_subscription_tasks: Dict[str, Task]
     """Reference to the queue subscription task by queue name."""
-    _queue_retrieve_next_message_tasks: Dict[str, Task]
-    """Reference to the queue next message task by queue name."""
     _ready_for_processing: threading.Event
     """Thread-safe check which is set once the AMQP connection is up and running."""
     _stopping_lock: threading.Lock
@@ -135,9 +151,9 @@ class BrokerInterface(threading.Thread):
         super().__init__()
         self.config = config
 
+        self._exchanges = {}
         self._queue_subscription_consumer_by_name = {}
         self._queue_subscription_tasks = {}
-        self._queue_retrieve_next_message_tasks = {}
         self._ready_for_processing = threading.Event()
         self._stopping_lock = threading.Lock()
         self._stopping = False
@@ -157,21 +173,70 @@ class BrokerInterface(threading.Thread):
         """Stop the interface when it is called as a context manager."""
         self.stop()
 
-    async def _send_message_to(self, queue_name: str, message: bytes) -> None:
-        """Publish a message to a specific queue assuming the routing key equals the queue name."""
-        logger.debug("Sending a message to %s containing: %s", queue_name, message)
-        await self._channel.default_exchange.publish(
-            Message(body=message, delivery_mode=DeliveryMode.PERSISTENT), routing_key=queue_name
-        )
+    async def _declare_exchange(self, exchange_name: str) -> None:
+        """Declare an exchange on which messages may be published and routed to queues.
+
+        :param exchange_name: Name of the exchange.
+        """
+        new_exchange = await self._channel.declare_exchange(exchange_name)
+        self._exchanges[exchange_name] = new_exchange
+
+    async def _send_message_to(
+        self, exchange_name: Optional[str], routing_key: str, message: bytes
+    ) -> None:
+        """Publish a message to a specific routing_key.
+
+        :param exchange_name: The name of the exchange on which to publish the message. Must be
+            declared before publishing is possible. If None, the default exchange is used which is
+            already declared at startup
+        :param routing_key: The routing key to publish the message to. This may be a specific
+            routing key to which multiple queues are bound or the queue name (default routing key).
+        :param message: The message to publish.
+        """
+        amqp_message = Message(body=message, delivery_mode=DeliveryMode.PERSISTENT)
+
+        if exchange_name is None:
+            logger.debug(
+                "Sending a message to default exchange using routing key %s containing: %s",
+                routing_key,
+                message,
+            )
+            await self._channel.default_exchange.publish(amqp_message, routing_key=routing_key)
+        elif exchange_name not in self._exchanges:
+            raise RuntimeError(
+                f"Unable to send message with routing key {routing_key} to exchange "
+                f"{exchange_name} as it hasn't been declared yet"
+            )
+        else:
+            logger.debug(
+                "Sending a message to exchange %s using routing key %s containing: %s",
+                exchange_name,
+                routing_key,
+                message,
+            )
+            await self._exchanges[exchange_name].publish(amqp_message, routing_key=routing_key)
 
     async def _add_queue_subscription(
-        self, queue_name: str, callback_on_message: Callable[[bytes], None]
+        self,
+        queue_name: str,
+        callback_on_message: Callable[[bytes], None],
+        queue_type: AMQPQueueType,
+        bind_to_routing_key: Optional[str] = None,
+        exchange_name: Optional[str] = None,
+        delete_after_messages: Optional[int] = None,
     ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
         :param queue_name: Name of the queue to declare.
         :param callback_on_message: Callback which is called from a separate thread to process the
             message body.
+        :param queue_type: Declare the queue using one of the known queue types.
+        :param bind_to_routing_key: Bind the queue to this routing key next to the default routing
+            key of the queue name. If none, the queue is only bound to the name of the queue.
+            If not none, then the exchange_name must be set as well.
+        :param exchange_name: Name of the exchange on which the messages will be published.
+        :param delete_after_messages: Delete the subscription & queue after this limit of messages
+            have been successfully processed.
         """
         if queue_name in self._queue_subscription_consumer_by_name:
             logger.error(
@@ -179,9 +244,28 @@ class BrokerInterface(threading.Thread):
                 "subscription on this queue already exists."
             )
             raise RuntimeError(f"Queue subscription for {queue_name} already exists.")
-        logger.info("Declaring queue and adding subscription to %s", queue_name)
-        queue = await self._channel.declare_queue(queue_name, durable=True, auto_delete=False)
-        queue_consumer = QueueSubscriptionConsumer(queue, callback_on_message)
+
+        if bind_to_routing_key is not None and exchange_name is None:
+            raise RuntimeError(
+                f"Routing key for binding was set to {bind_to_routing_key} but no "
+                f"exchange name was provided."
+            )
+
+        logger.info("Declaring queue as %s and adding subscription to %s", queue_type, queue_name)
+        queue = await self._channel.declare_queue(queue_name, **queue_type.to_argument())
+
+        if exchange_name is not None:
+            if exchange_name not in self._exchanges:
+                raise RuntimeError(
+                    f"Exchange {exchange_name} was not yet declared by this connection."
+                )
+            exchange = self._exchanges[exchange_name]
+            logger.info("Binding queue %s to routing key %s", queue_name, bind_to_routing_key)
+            await queue.bind(exchange=exchange, routing_key=bind_to_routing_key)
+
+        queue_consumer = QueueSubscriptionConsumer(
+            queue, delete_after_messages, callback_on_message
+        )
         self._queue_subscription_consumer_by_name[queue_name] = queue_consumer
 
         queue_subscription_task = asyncio.create_task(queue_consumer.run())
@@ -200,43 +284,6 @@ class BrokerInterface(threading.Thread):
             self._queue_subscription_tasks[queue_name].cancel()
             await self._channel.queue_delete(queue_name)
 
-    async def _receive_next_message(
-        self,
-        queue_name: str,
-        timeout: Optional[float],
-        callback_on_message: Callable[[bytes], None],
-        callback_on_no_message: Optional[Callable[[], None]],
-    ) -> None:
-        """Declare an AMQP queue and wait for the next message on it to arrive.
-
-        :param queue_name: Name of the queue and routing key.
-        :param timeout: How long to wait until the next message arrives.
-        :param callback_on_message: Callback which is executed when the message arrives.
-        :param callback_on_no_message: Callback which is called when the message does not arrive
-            within the timeout.
-        """
-        logger.info("Declaring queue and retrieving the next message to %s", queue_name)
-        queue = await self._channel.declare_queue(queue_name, durable=True, auto_delete=False)
-        queue_retriever = QueueSingleMessageConsumer(
-            queue, timeout, callback_on_message, callback_on_no_message
-        )
-
-        queue_retriever_task = asyncio.create_task(queue_retriever.run())
-        queue_retriever_task.add_done_callback(
-            partial(self._remove_queue_next_message_task, queue_name)
-        )
-        self._queue_retrieve_next_message_tasks[queue_name] = queue_retriever_task
-
-    async def _remove_queue_next_message_subscription(self, queue_name: str) -> None:
-        """Remove subscription from queue and delete the queue if one exists.
-
-        :param queue_name: Name of the queue to unsubscribe from.
-        """
-        if queue_name in self._queue_retrieve_next_message_tasks:
-            logger.info("Stop waiting for next message on %s and remove queue", queue_name)
-            self._queue_retrieve_next_message_tasks[queue_name].cancel()
-            await self._channel.queue_delete(queue_name)
-
     def _remove_queue_subscription_task(self, queue_name: str, future: Future) -> None:
         """Remove the queue subscription from the internal cache.
 
@@ -248,19 +295,6 @@ class BrokerInterface(threading.Thread):
             logger.debug("Queue subscription %s is done. Calling termination callback", queue_name)
             del self._queue_subscription_consumer_by_name[queue_name]
             del self._queue_subscription_tasks[queue_name]
-
-    def _remove_queue_next_message_task(self, queue_name: str, future: Future) -> None:
-        """Remove the task waiting for next message from queue from the internal cache.
-
-        :param queue_name: Name of the queue which is awaiting an new message.
-        :param future: Required argument from Task.add_done_callback which also refers to the
-            task running the subscription but as a `Future`.
-        """
-        if queue_name in self._queue_retrieve_next_message_tasks:
-            logger.debug(
-                "Waiting for single message on %s is done. Calling termination callback", queue_name
-            )
-            del self._queue_retrieve_next_message_tasks[queue_name]
 
     async def _setup_broker_interface(self) -> None:
         """Start the AMQP connection and channel."""
@@ -288,9 +322,7 @@ class BrokerInterface(threading.Thread):
     async def _stop_broker_interface(self) -> None:
         """Cancel all subscriptions, close the channel and the connection."""
         logger.info("Stopping broker interface")
-        tasks_to_cancel = list(self._queue_subscription_tasks.values()) + list(
-            self._queue_retrieve_next_message_tasks.values()
-        )
+        tasks_to_cancel = list(self._queue_subscription_tasks.values())
         for queue_task in tasks_to_cancel:
             queue_task.cancel()
         if hasattr(self, "_channel") and self._channel:
@@ -326,17 +358,44 @@ class BrokerInterface(threading.Thread):
                 logger.error("Setup task for AMQP connection was not created.")
             self._loop.close()
 
+    def declare_exchange(self, exchange_name: str) -> None:
+        """Declare an exchange on which messages may be published and routed to queues.
+
+        :param exchange_name: Name of the exchange.
+        """
+        asyncio.run_coroutine_threadsafe(self._declare_exchange(exchange_name), self._loop).result()
+
     def add_queue_subscription(
-        self, queue_name: str, callback_on_message: Callable[[bytes], None]
+        self,
+        queue_name: str,
+        callback_on_message: Callable[[bytes], None],
+        queue_type: AMQPQueueType,
+        bind_to_routing_key: Optional[str] = None,
+        exchange_name: Optional[str] = None,
+        delete_after_messages: Optional[int] = None,
     ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
         :param queue_name: Name of the queue to declare.
         :param callback_on_message: Callback which is called from a separate thread to process the
             message body.
+        :param queue_type: Declare the queue using one of the known queue types.
+        :param bind_to_routing_key: Bind the queue to this routing key next to the default routing
+            key of the queue name. If none, the queue is only bound to the name of the queue.
+        :param exchange_name: Name of the exchange on which the messages will be published.
+        :param delete_after_messages: Delete the subscription & queue after this limit of messages
+            have been successfully processed.
         """
         asyncio.run_coroutine_threadsafe(
-            self._add_queue_subscription(queue_name, callback_on_message), self._loop
+            self._add_queue_subscription(
+                queue_name=queue_name,
+                callback_on_message=callback_on_message,
+                queue_type=queue_type,
+                bind_to_routing_key=bind_to_routing_key,
+                exchange_name=exchange_name,
+                delete_after_messages=delete_after_messages,
+            ),
+            self._loop,
         ).result()
 
     def remove_queue_subscription(self, queue_name: str) -> None:
@@ -348,46 +407,20 @@ class BrokerInterface(threading.Thread):
             self._remove_queue_subscription(queue_name), self._loop
         ).result()
 
-    def receive_next_message(
-        self,
-        queue_name: str,
-        timeout: Optional[float],
-        callback_on_message: Callable[[bytes], None],
-        callback_on_no_message: Optional[Callable[[], None]],
+    def send_message_to(
+        self, exchange_name: Optional[str], routing_key: str, message: bytes
     ) -> None:
-        """Declare an AMQP queue and wait for the next message on it to arrive.
-
-        :param queue_name: Name of the queue to retrieve a message from.
-        :param timeout: Time to wait for message to arrive in seconds. If None is used, the timeout
-            is infinite.
-        :param callback_on_message: Callback which is called when the message is received.
-        :param callback_on_no_message: Callback which is called when no message is received in the
-            allotted time.
-        """
-        asyncio.run_coroutine_threadsafe(
-            self._receive_next_message(
-                queue_name, timeout, callback_on_message, callback_on_no_message
-            ),
-            self._loop,
-        ).result()
-
-    def remove_queue_next_message_subscription(self, queue_name: str) -> None:
-        """Remove subscription from queue and delete the queue if one exists.
-
-        :param queue_name: Name of the queue to unsubscribe from.
-        """
-        asyncio.run_coroutine_threadsafe(
-            self._remove_queue_next_message_subscription(queue_name), self._loop
-        ).result()
-
-    def send_message_to(self, queue_name: str, message: bytes) -> None:
         """Publish a single message to the queue.
 
-        :param queue_name: Name of the queue to publish the message to.
-        :param message: The message to send.
+        :param exchange_name: The name of the exchange on which to publish the message. Must be
+            declared before publishing is possible. If None, the default exchange is used which is
+            already declared at startup
+        :param routing_key: The routing key to publish the message to. This may be a specific
+            routing key to which multiple queues are bound or the queue name (default routing key).
+        :param message: The message to publish.
         """
         asyncio.run_coroutine_threadsafe(
-            self._send_message_to(queue_name, message), self._loop
+            self._send_message_to(exchange_name, routing_key, message), self._loop
         ).result()
 
     def stop(self) -> None:
