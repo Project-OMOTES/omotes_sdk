@@ -37,7 +37,6 @@ def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
     normalized_dict: Dict[str, PBStructCompatibleTypes] = {}
 
     for key, value in params_dict.items():
-        print(key, type(value), isinstance(value, int))
         if type(value) is datetime:
             normalized_dict[key] = value.timestamp()
         elif type(value) is timedelta:
