@@ -251,6 +251,7 @@ class Worker:
         self.celery_app.conf.worker_prefetch_multiplier = 1
         self.celery_app.conf.broker_connection_retry_on_startup = True
         # app.conf.worker_send_task_events = True  # Tell the worker to send task events.
+        self.celery_app.conf.worker_hijack_root_logger = False
         self.celery_app.conf.worker_redirect_stdouts = False
 
         self.celery_app.task(wrapped_worker_task, base=WorkerTask, name=WORKER_TASK_TYPE, bind=True)
@@ -266,7 +267,7 @@ class Worker:
 
         self.celery_worker = self.celery_app.Worker(
             hostname=f"worker-{WORKER_TASK_TYPE}@{socket.gethostname()}",
-            log_level=logging.getLevelName(self.config.log_level),
+            loglevel=logging.getLevelName(self.config.log_level),
             autoscale=(1, 1),
         )
 
