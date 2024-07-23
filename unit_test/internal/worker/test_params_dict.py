@@ -1,5 +1,6 @@
 import unittest
 from datetime import datetime, timedelta
+from typing import Type
 
 from google.protobuf import json_format
 
@@ -9,12 +10,13 @@ from omotes_sdk.internal.worker.params_dict import (
     MissingFieldTypeException,
     WrongFieldTypeException,
 )
+from omotes_sdk.types import ParamsDict
 
 
 class TestModule(unittest.TestCase):
     def test__convert_params_dict_to_struct__list_bool_float_int_datetime_timedelta(self) -> None:
         # Arrange
-        params_dict = {
+        params_dict: ParamsDict = {
             "list": [1, 2, 3],
             "bool": True,
             "str": "some-str",
@@ -42,10 +44,10 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__list(self) -> None:
         # Arrange
-        workflow_config = {"some-key": [1.0, 2.0, 3.0]}
-        field_key = "some-key"
-        expected_type = list
-        default_value = []
+        workflow_config: ParamsDict = {"some-key": [1.0, 2.0, 3.0]}
+        field_key: str = "some-key"
+        expected_type: Type[list] = list
+        default_value: list[float] = []
 
         # Act
         param = parse_workflow_config_parameter(

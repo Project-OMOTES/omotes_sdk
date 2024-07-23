@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Type, Optional, TypeVar, cast, List, Union, Dict, get_args
+from typing import Type, Optional, TypeVar, cast, Union, Dict, get_args
 
 from google.protobuf.struct_pb2 import Struct
 
