@@ -4,7 +4,6 @@ import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable, Optional, Union
-from google.protobuf.struct_pb2 import Struct
 
 from omotes_sdk.internal.common.broker_interface import BrokerInterface, AMQPQueueType
 from omotes_sdk.config import RabbitMQConfig
@@ -16,6 +15,8 @@ from omotes_sdk_protocol.job_pb2 import (
     JobCancel,
 )
 from omotes_sdk_protocol.workflow_pb2 import AvailableWorkflows, RequestAvailableWorkflows
+
+from omotes_sdk.internal.worker.params_dict import convert_params_dict_to_struct
 from omotes_sdk.job import Job
 from omotes_sdk.queue_names import OmotesQueueNames
 from omotes_sdk.types import ParamsDict
@@ -261,14 +262,13 @@ class OmotesInterface:
         )
 
         timeout_ms = round(job_timeout.total_seconds() * 1000) if job_timeout else None
-        params_dict_struct = Struct()
-        params_dict_struct.update(params_dict)
+
         job_submission_msg = JobSubmission(
             uuid=str(job.id),
             timeout_ms=timeout_ms,
             workflow_type=workflow_type.workflow_type_name,
             esdl=esdl,
-            params_dict=params_dict_struct,
+            params_dict=convert_params_dict_to_struct(params_dict),
         )
         self.broker_if.send_message_to(
             OmotesQueueNames.omotes_exchange_name(),
