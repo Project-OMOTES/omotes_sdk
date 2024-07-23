@@ -71,8 +71,7 @@ class TestModule(unittest.TestCase):
         )
 
         # Assert
-        expected_param = True
-        self.assertIs(param, expected_param)
+        self.assertTrue(param)
 
     def test__parse_workflow_config_parameter__str(self) -> None:
         # Arrange
@@ -104,7 +103,7 @@ class TestModule(unittest.TestCase):
 
         # Assert
         expected_param = 2.0
-        self.assertIs(param, expected_param)
+        self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__int(self) -> None:
         # Arrange
@@ -120,7 +119,7 @@ class TestModule(unittest.TestCase):
 
         # Assert
         expected_param = 2
-        self.assertIs(param, expected_param)
+        self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__datetime(self) -> None:
         # Arrange
