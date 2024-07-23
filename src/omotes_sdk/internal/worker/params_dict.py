@@ -37,11 +37,12 @@ def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
     normalized_dict: Dict[str, PBStructCompatibleTypes] = {}
 
     for key, value in params_dict.items():
-        if isinstance(value, datetime):
+        print(key, type(value), isinstance(value, int))
+        if type(value) is datetime:
             normalized_dict[key] = value.timestamp()
-        elif isinstance(value, timedelta):
+        elif type(value) is timedelta:
             normalized_dict[key] = value.total_seconds()
-        elif isinstance(value, int):
+        elif type(value) is int:
             normalized_dict[key] = float(value)
         elif isinstance(value, get_args(PBStructCompatibleTypes)):
             normalized_dict[key] = value
@@ -88,8 +89,6 @@ def parse_workflow_config_parameter(
         # `workflow_config[field_key]` according to the type checker. However, we have confirmed
         # the type already so we may cast it.
         result = cast(ParamsDictValue, maybe_value)
-    elif is_present and type(maybe_value) is float and expected_type is bool:
-        result = bool(maybe_value)
     elif is_present and type(maybe_value) is float and expected_type is datetime:
         result = cast(ParamsDictValue, datetime.fromtimestamp(maybe_value))
     elif is_present and type(maybe_value) is float and expected_type is timedelta:

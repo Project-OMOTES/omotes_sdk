@@ -30,7 +30,7 @@ class TestModule(unittest.TestCase):
         # Assert
         expected_converted = {
             "list": [1.0, 2.0, 3.0],
-            "bool": 1.0,
+            "bool": True,
             "str": "some-str",
             "float": 2.0,
             "int": 3.0,
@@ -58,7 +58,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__bool(self) -> None:
         # Arrange
-        workflow_config = {"some-key": 1.0}
+        workflow_config = {"some-key": True}
         field_key = "some-key"
         expected_type = bool
         default_value = False
