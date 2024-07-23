@@ -96,19 +96,30 @@ class OmotesInterface:
     """Event triggered when workflow configuration is received."""
     client_id: str
     """Identifier of this SDK instance. Should be unique from other SDKs."""
+    timeout_on_initial_workflow_definitions: timedelta
+    """How long the SDK should wait for the first reply when requesting the current workflow
+    definitions from the orchestrator."""
 
-    def __init__(self, rabbitmq_config: RabbitMQConfig, client_id: str):
+    def __init__(
+        self,
+        rabbitmq_config: RabbitMQConfig,
+        client_id: str,
+        timeout_on_initial_workflow_definitions: timedelta = timedelta(minutes=1),
+    ):
         """Create the OMOTES interface.
 
         NOTE: Needs to be started separately.
 
         :param rabbitmq_config: RabbitMQ configuration how to connect to OMOTES.
         :param client_id: Identifier of this SDK instance. Should be unique from other SDKs.
+        :param timeout_on_initial_workflow_definitions: How long the SDK should wait for the first
+            reply when requesting the current workflow definitions from the orchestrator.
         """
         self.broker_if = BrokerInterface(rabbitmq_config)
         self.workflow_type_manager = None
         self._workflow_config_received = threading.Event()
         self.client_id = client_id
+        self.timeout_on_initial_workflow_definitions = timeout_on_initial_workflow_definitions
 
     def start(self) -> None:
         """Start any other interfaces and request available workflows."""
@@ -118,7 +129,9 @@ class OmotesInterface:
         self.request_available_workflows()
 
         logger.info("Waiting for workflow definitions to be received from the orchestrator...")
-        if not self._workflow_config_received.wait(timeout=60):
+        if not self._workflow_config_received.wait(
+            timeout=self.timeout_on_initial_workflow_definitions.total_seconds()
+        ):
             raise RuntimeError(
                 "The orchestrator did not send the available workflows within "
                 "the expected time. Is the orchestrator online and connected "
