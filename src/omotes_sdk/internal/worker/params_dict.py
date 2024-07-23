@@ -1,5 +1,8 @@
 import logging
-from typing import Type, Optional, TypeVar, cast
+from datetime import datetime, timedelta
+from typing import Type, Optional, TypeVar, cast, List, Union, Dict, get_args
+
+from google.protobuf.struct_pb2 import Struct
 
 from omotes_sdk.types import ParamsDict, ParamsDictValues
 
@@ -18,6 +21,37 @@ class MissingFieldTypeException(Exception):
     """Thrown when param_dict does not contain the value for some parameter."""
 
     ...
+
+
+PBStructCompatibleTypes = Union[List["PBStructCompatibleTypes"], float, str, bool]
+
+
+def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
+    """Convert all values to Struct-compatible value types.
+
+    If a value is already a Struct-compatible type, then it isn't convert.
+
+    :param params_dict: The params dict to convert.
+    :return: The protobuf Struct loaded with converted values.
+    """
+    normalized_dict: Dict[str, PBStructCompatibleTypes] = {}
+
+    for key, value in params_dict.items():
+        if isinstance(value, datetime):
+            normalized_dict[key] = value.timestamp()
+        elif isinstance(value, timedelta):
+            normalized_dict[key] = value.total_seconds()
+        elif isinstance(value, get_args(PBStructCompatibleTypes)):
+            normalized_dict[key] = value
+        else:
+            raise RuntimeError(
+                f"Incompatible type {type(value)} with key {key} and value {value} in params_dict"
+            )
+
+    params_dict_struct = Struct()
+    params_dict_struct.update(normalized_dict)
+
+    return params_dict_struct
 
 
 def parse_workflow_config_parameter(
@@ -46,11 +80,16 @@ def parse_workflow_config_parameter(
     of_type = type(maybe_value)
     is_present = field_key in workflow_config
 
+    result: ParamsDictValue
     if is_present and isinstance(maybe_value, expected_type):
         # cast is necessary here as Expected type var may not have the same type as
         # `workflow_config[field_key]` according to the type checker. However, we have confirmed
         # the type already so we may cast it.
         result = cast(ParamsDictValue, maybe_value)
+    elif is_present and type(maybe_value) is float and expected_type is datetime:
+        result = cast(ParamsDictValue, datetime.fromtimestamp(maybe_value))
+    elif is_present and type(maybe_value) is float and expected_type is timedelta:
+        result = cast(ParamsDictValue, timedelta(seconds=maybe_value))
     elif is_present and type(maybe_value) is float and expected_type is int:
         # when the field value type is float but the Expected type is an integer,
         # round the value to an integer and log the warning message
@@ -65,7 +104,7 @@ def parse_workflow_config_parameter(
                 of_type,
                 expected_type,
                 maybe_value,
-                result
+                result,
             )
     elif default_value:
         result = default_value
@@ -80,7 +119,7 @@ def parse_workflow_config_parameter(
             )
         else:
             logger.warning(
-                "%s field was missing in workflow configuration. Using default value %d",
+                "%s field was missing in workflow configuration. Using default value %s",
                 field_key,
                 default_value,
             )
