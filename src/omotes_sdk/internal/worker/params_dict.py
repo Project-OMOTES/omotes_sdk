@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Type, Optional, TypeVar, cast, List, Union, Dict, get_args
+from typing import Type, Optional, TypeVar, cast, Dict, get_args
 
 from google.protobuf.struct_pb2 import Struct
 
-from omotes_sdk.types import ParamsDict, ParamsDictValues
+from omotes_sdk.types import ParamsDict, ParamsDictValues, PBStructCompatibleTypes
 
 logger = logging.getLogger("omotes_sdk_internal")
 
@@ -23,9 +23,6 @@ class MissingFieldTypeException(Exception):
     ...
 
 
-PBStructCompatibleTypes = Union[List["PBStructCompatibleTypes"], float, str, bool]
-
-
 def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
     """Convert all values to Struct-compatible value types.
 
@@ -37,10 +34,12 @@ def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
     normalized_dict: Dict[str, PBStructCompatibleTypes] = {}
 
     for key, value in params_dict.items():
-        if isinstance(value, datetime):
+        if type(value) is datetime:
             normalized_dict[key] = value.timestamp()
-        elif isinstance(value, timedelta):
+        elif type(value) is timedelta:
             normalized_dict[key] = value.total_seconds()
+        elif type(value) is int:
+            normalized_dict[key] = float(value)
         elif isinstance(value, get_args(PBStructCompatibleTypes)):
             normalized_dict[key] = value
         else:
@@ -106,7 +105,7 @@ def parse_workflow_config_parameter(
                 maybe_value,
                 result,
             )
-    elif default_value:
+    elif default_value is not None:
         result = default_value
         if is_present and not isinstance(maybe_value, expected_type):
             logger.warning(
