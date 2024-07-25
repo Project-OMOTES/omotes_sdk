@@ -1,10 +1,10 @@
 import logging
 from datetime import datetime, timedelta
-from typing import Type, Optional, TypeVar, cast, Union, Dict, get_args
+from typing import Type, Optional, TypeVar, cast, Dict, get_args
 
 from google.protobuf.struct_pb2 import Struct
 
-from omotes_sdk.types import ParamsDict, ParamsDictValues
+from omotes_sdk.types import ParamsDict, ParamsDictValues, PBStructCompatibleTypes
 
 logger = logging.getLogger("omotes_sdk_internal")
 
@@ -21,9 +21,6 @@ class MissingFieldTypeException(Exception):
     """Thrown when param_dict does not contain the value for some parameter."""
 
     ...
-
-
-PBStructCompatibleTypes = Union[list, float, str, bool]
 
 
 def convert_params_dict_to_struct(params_dict: ParamsDict) -> Struct:
