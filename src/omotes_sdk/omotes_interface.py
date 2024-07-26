@@ -148,7 +148,7 @@ class OmotesInterface:
 
         :param job: Job to disconnect from.
         """
-        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_results_queue_name(job))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_results_queue_name(job.id))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
 
@@ -194,7 +194,7 @@ class OmotesInterface:
         )
 
         self.broker_if.add_queue_subscription(
-            queue_name=OmotesQueueNames.job_results_queue_name(job),
+            queue_name=OmotesQueueNames.job_results_queue_name(job.id),
             callback_on_message=callback_handler.callback_on_finished_wrapped,
             queue_type=AMQPQueueType.DURABLE,
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
