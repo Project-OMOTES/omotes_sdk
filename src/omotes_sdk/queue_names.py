@@ -14,13 +14,12 @@ class OmotesQueueNames:
         return "omotes_exchange"
 
     @staticmethod
-    def job_submission_queue_name(workflow_type: WorkflowType) -> str:
-        """Generate the job submission queue name given the workflow type.
+    def job_submission_queue_name() -> str:
+        """Generate the job submission queue name.
 
-        :param workflow_type: Workflow type.
         :return: The queue name.
         """
-        return f"job_submissions.{workflow_type.workflow_type_name}"
+        return f"job_submissions"
 
     @staticmethod
     def job_results_queue_name(job: Job) -> str:

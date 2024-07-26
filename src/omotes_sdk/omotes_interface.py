@@ -271,8 +271,8 @@ class OmotesInterface:
             params_dict=convert_params_dict_to_struct(params_dict),
         )
         self.broker_if.send_message_to(
-            OmotesQueueNames.omotes_exchange_name(),
-            OmotesQueueNames.job_submission_queue_name(workflow_type),
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+            routing_key=OmotesQueueNames.job_submission_queue_name(),
             message=job_submission_msg.SerializeToString(),
         )
         logger.debug("Done submitting job %s", job.id)
