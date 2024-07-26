@@ -1,7 +1,6 @@
 import uuid
 
 from omotes_sdk.job import Job
-from omotes_sdk.workflow_type import WorkflowType
 
 
 class OmotesQueueNames:
@@ -21,7 +20,7 @@ class OmotesQueueNames:
 
         :return: The queue name.
         """
-        return f"job_submissions"
+        return "job_submissions"
 
     @staticmethod
     def job_results_queue_name(job_uuid: uuid.UUID) -> str:

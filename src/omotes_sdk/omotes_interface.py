@@ -126,6 +126,13 @@ class OmotesInterface:
         """Start any other interfaces and request available workflows."""
         self.broker_if.start()
         self.broker_if.declare_exchange(OmotesQueueNames.omotes_exchange_name())
+        # Declare job submissions queue just in case the orchestrator isn't life yet so we do not
+        # lose work.
+        self.broker_if.declare_queue(
+            queue_name=OmotesQueueNames.job_submission_queue_name(),
+            queue_type=AMQPQueueType.DURABLE,
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+        )
         self.connect_to_available_workflows_updates()
         self.request_available_workflows()
 
@@ -193,7 +200,7 @@ class OmotesInterface:
             auto_disconnect_handler,
         )
 
-        self.broker_if.add_queue_subscription(
+        self.broker_if.declare_queue_and_add_subscription(
             queue_name=OmotesQueueNames.job_results_queue_name(job.id),
             callback_on_message=callback_handler.callback_on_finished_wrapped,
             queue_type=AMQPQueueType.DURABLE,
@@ -201,14 +208,14 @@ class OmotesInterface:
             delete_after_messages=1,
         )
         if callback_on_progress_update:
-            self.broker_if.add_queue_subscription(
+            self.broker_if.declare_queue_and_add_subscription(
                 queue_name=OmotesQueueNames.job_progress_queue_name(job),
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
             )
         if callback_on_status_update:
-            self.broker_if.add_queue_subscription(
+            self.broker_if.declare_queue_and_add_subscription(
                 queue_name=OmotesQueueNames.job_status_queue_name(job),
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
@@ -298,7 +305,7 @@ class OmotesInterface:
 
     def connect_to_available_workflows_updates(self) -> None:
         """Connect to updates of the available workflows."""
-        self.broker_if.add_queue_subscription(
+        self.broker_if.declare_queue_and_add_subscription(
             queue_name=OmotesQueueNames.available_workflows_queue_name(self.client_id),
             callback_on_message=self.callback_on_update_available_workflows,
             queue_type=AMQPQueueType.EXCLUSIVE,
