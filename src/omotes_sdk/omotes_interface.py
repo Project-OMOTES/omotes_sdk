@@ -234,6 +234,7 @@ class OmotesInterface:
             str, Union[Struct, ListValue, str, float, bool, None, Mapping[str, Any], Sequence]
         :param workflow_type: Type of the workflow to start.
         :param job_timeout: How long the job may take before it is considered to be timeout.
+            If it is specified as None, the job is immune from the periodic timeout job cancellation task.
         :param callback_on_finished: Callback which is called with the job result once the job is
             done.
         :param callback_on_progress_update: Callback which is called with any progress updates.
@@ -261,7 +262,10 @@ class OmotesInterface:
             auto_disconnect_on_result,
         )
 
-        timeout_ms = round(job_timeout.total_seconds() * 1000) if job_timeout else None
+        if job_timeout is not None:
+            timeout_ms = round(job_timeout.total_seconds() * 1000)
+        else:
+            timeout_ms = None
 
         job_submission_msg = JobSubmission(
             uuid=str(job.id),
