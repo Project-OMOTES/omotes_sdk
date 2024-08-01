@@ -1,7 +1,5 @@
 import uuid
 
-from omotes_sdk.job import Job
-
 
 class OmotesQueueNames:
     """Container for OMOTES SDK to Orchestrator queue names, routing keys and exchange names."""
