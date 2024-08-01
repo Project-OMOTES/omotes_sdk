@@ -216,7 +216,43 @@ class BrokerInterface(threading.Thread):
             )
             await self._exchanges[exchange_name].publish(amqp_message, routing_key=routing_key)
 
-    async def _add_queue_subscription(
+    async def _declare_queue(
+        self,
+        queue_name: str,
+        queue_type: AMQPQueueType,
+        bind_to_routing_key: Optional[str] = None,
+        exchange_name: Optional[str] = None,
+    ) -> AbstractQueue:
+        """Declare an AMQP queue.
+
+        :param queue_name: Name of the queue to declare.
+        :param queue_type: Declare the queue using one of the known queue types.
+        :param bind_to_routing_key: Bind the queue to this routing key next to the default routing
+            key of the queue name. If none, the queue is only bound to the name of the queue.
+            If not none, then the exchange_name must be set as well.
+        :param exchange_name: Name of the exchange on which the messages will be published.
+        """
+        if bind_to_routing_key is not None and exchange_name is None:
+            raise RuntimeError(
+                f"Routing key for binding was set to {bind_to_routing_key} but no "
+                f"exchange name was provided."
+            )
+
+        logger.info("Declaring queue %s as %s", queue_name, queue_type)
+        queue = await self._channel.declare_queue(queue_name, **queue_type.to_argument())
+
+        if exchange_name is not None:
+            if exchange_name not in self._exchanges:
+                raise RuntimeError(
+                    f"Exchange {exchange_name} was not yet declared by this connection."
+                )
+            exchange = self._exchanges[exchange_name]
+            logger.info("Binding queue %s to routing key %s", queue_name, bind_to_routing_key)
+            await queue.bind(exchange=exchange, routing_key=bind_to_routing_key)
+
+        return queue
+
+    async def _declare_queue_and_add_subscription(
         self,
         queue_name: str,
         callback_on_message: Callable[[bytes], None],
@@ -245,23 +281,9 @@ class BrokerInterface(threading.Thread):
             )
             raise RuntimeError(f"Queue subscription for {queue_name} already exists.")
 
-        if bind_to_routing_key is not None and exchange_name is None:
-            raise RuntimeError(
-                f"Routing key for binding was set to {bind_to_routing_key} but no "
-                f"exchange name was provided."
-            )
-
-        logger.info("Declaring queue as %s and adding subscription to %s", queue_type, queue_name)
-        queue = await self._channel.declare_queue(queue_name, **queue_type.to_argument())
-
-        if exchange_name is not None:
-            if exchange_name not in self._exchanges:
-                raise RuntimeError(
-                    f"Exchange {exchange_name} was not yet declared by this connection."
-                )
-            exchange = self._exchanges[exchange_name]
-            logger.info("Binding queue %s to routing key %s", queue_name, bind_to_routing_key)
-            await queue.bind(exchange=exchange, routing_key=bind_to_routing_key)
+        queue = await self._declare_queue(
+            queue_name, queue_type, bind_to_routing_key, exchange_name
+        )
 
         queue_consumer = QueueSubscriptionConsumer(
             queue, delete_after_messages, callback_on_message
@@ -365,7 +387,33 @@ class BrokerInterface(threading.Thread):
         """
         asyncio.run_coroutine_threadsafe(self._declare_exchange(exchange_name), self._loop).result()
 
-    def add_queue_subscription(
+    def declare_queue(
+        self,
+        queue_name: str,
+        queue_type: AMQPQueueType,
+        bind_to_routing_key: Optional[str] = None,
+        exchange_name: Optional[str] = None,
+    ) -> None:
+        """Declare an AMQP queue.
+
+        :param queue_name: Name of the queue to declare.
+        :param queue_type: Declare the queue using one of the known queue types.
+        :param bind_to_routing_key: Bind the queue to this routing key next to the default routing
+            key of the queue name. If none, the queue is only bound to the name of the queue.
+            If not none, then the exchange_name must be set as well.
+        :param exchange_name: Name of the exchange on which the messages will be published.
+        """
+        asyncio.run_coroutine_threadsafe(
+            self._declare_queue(
+                queue_name=queue_name,
+                queue_type=queue_type,
+                bind_to_routing_key=bind_to_routing_key,
+                exchange_name=exchange_name,
+            ),
+            self._loop,
+        ).result()
+
+    def declare_queue_and_add_subscription(
         self,
         queue_name: str,
         callback_on_message: Callable[[bytes], None],
@@ -387,7 +435,7 @@ class BrokerInterface(threading.Thread):
             have been successfully processed.
         """
         asyncio.run_coroutine_threadsafe(
-            self._add_queue_subscription(
+            self._declare_queue_and_add_subscription(
                 queue_name=queue_name,
                 callback_on_message=callback_on_message,
                 queue_type=queue_type,
