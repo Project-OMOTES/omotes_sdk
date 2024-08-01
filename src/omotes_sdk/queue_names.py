@@ -24,7 +24,7 @@ class OmotesQueueNames:
 
     @staticmethod
     def job_results_queue_name(job_uuid: uuid.UUID) -> str:
-        """Generate the job results queue name given the job.
+        """Generate the job results queue name given the job id.
 
         :param job_uuid: The identifier of the job.
         :return: The queue name.
@@ -32,22 +32,22 @@ class OmotesQueueNames:
         return f"jobs.{job_uuid}.result"
 
     @staticmethod
-    def job_progress_queue_name(job: Job) -> str:
-        """Generate the job progress update queue name given the job.
+    def job_progress_queue_name(job_uuid: uuid.UUID) -> str:
+        """Generate the job progress update queue name given the job id.
 
-        :param job: The job.
+        :param job_uuid: The identifier of the job.
         :return: The queue name.
         """
-        return f"jobs.{job.id}.progress"
+        return f"jobs.{job_uuid}.progress"
 
     @staticmethod
-    def job_status_queue_name(job: Job) -> str:
-        """Generate the job status update queue name given the job.
+    def job_status_queue_name(job_uuid: uuid.UUID) -> str:
+        """Generate the job status update queue name given the job id.
 
-        :param job: The job.
+        :param job_uuid: The identifier of the job.
         :return: The queue name.
         """
-        return f"jobs.{job.id}.status"
+        return f"jobs.{job_uuid}.status"
 
     @staticmethod
     def job_cancel_queue_name() -> str:

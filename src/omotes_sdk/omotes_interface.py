@@ -156,13 +156,13 @@ class OmotesInterface:
         :param job: Job to disconnect from.
         """
         self.broker_if.remove_queue_subscription(OmotesQueueNames.job_results_queue_name(job.id))
-        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
-        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job.id))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job.id))
 
     def _autodelete_progres_status_queues_on_result(self, job: Job) -> None:
         """Disconnect and delete the progress and status queues for some job."""
-        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job))
-        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_progress_queue_name(job.id))
+        self.broker_if.remove_queue_subscription(OmotesQueueNames.job_status_queue_name(job.id))
 
     def connect_to_submitted_job(
         self,
@@ -209,14 +209,14 @@ class OmotesInterface:
         )
         if callback_on_progress_update:
             self.broker_if.declare_queue_and_add_subscription(
-                queue_name=OmotesQueueNames.job_progress_queue_name(job),
+                queue_name=OmotesQueueNames.job_progress_queue_name(job.id),
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
             )
         if callback_on_status_update:
             self.broker_if.declare_queue_and_add_subscription(
-                queue_name=OmotesQueueNames.job_status_queue_name(job),
+                queue_name=OmotesQueueNames.job_status_queue_name(job.id),
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
