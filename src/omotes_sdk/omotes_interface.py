@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable, Optional, Union
 
-from omotes_sdk.internal.common.broker_interface import BrokerInterface, AMQPQueueType
+from omotes_sdk.internal.common.broker_interface import (
+    BrokerInterface,
+    AMQPQueueType,
+    QueueMessageTTLArguments
+)
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk_protocol.job_pb2 import (
     JobResult,
@@ -100,6 +104,12 @@ class OmotesInterface:
     timeout_on_initial_workflow_definitions: timedelta
     """How long the SDK should wait for the first reply when requesting the current workflow
     definitions from the orchestrator."""
+
+    JOB_QUEUES_TTL: timedelta = timedelta(hours=49)
+    """Define job result, progress, and status queues TTL."""
+    JOB_RESULT_MESSAGE_TTL: timedelta = timedelta(hours=48)
+    """Define job result queue message TTL. Set this value smaller than JOB_QUEUES_TTL
+    to ensure the message is dead-lettered before the queue reaches TTL."""
 
     def __init__(
         self,
@@ -200,12 +210,20 @@ class OmotesInterface:
             auto_disconnect_handler,
         )
 
+        # TODO: raise an error if job queues are deleted due to TTL
+        # and not found when the client reconnects.
+
         self.broker_if.declare_queue_and_add_subscription(
             queue_name=OmotesQueueNames.job_results_queue_name(job.id),
             callback_on_message=callback_handler.callback_on_finished_wrapped,
             queue_type=AMQPQueueType.DURABLE,
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
             delete_after_messages=1,
+            queue_message_ttl=QueueMessageTTLArguments(
+                queue_ttl=self.JOB_QUEUES_TTL,
+                message_ttl=self.JOB_RESULT_MESSAGE_TTL,
+                dead_letter_routing_key=OmotesQueueNames.dead_letter_queue_name(),
+                dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
         )
         if callback_on_progress_update:
             self.broker_if.declare_queue_and_add_subscription(
@@ -213,6 +231,7 @@ class OmotesInterface:
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
+                queue_message_ttl=QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
             )
         if callback_on_status_update:
             self.broker_if.declare_queue_and_add_subscription(
@@ -220,6 +239,7 @@ class OmotesInterface:
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
+                queue_message_ttl=QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
             )
 
     def submit_job(

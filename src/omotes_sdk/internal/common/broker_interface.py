@@ -7,7 +7,8 @@ from enum import Enum
 from functools import partial
 import threading
 from types import TracebackType
-from typing import Callable, Optional, Dict, Type, TypedDict
+from typing import Callable, Optional, Dict, Type, TypedDict, Union
+from datetime import timedelta
 
 from aio_pika import connect_robust, Message, DeliveryMode
 from aio_pika.abc import (
@@ -111,6 +112,45 @@ class AMQPQueueType(Enum):
             raise RuntimeError(f"Unknown AMQP queue type {self}")
 
         return result
+
+
+@dataclass()
+class QueueMessageTTLArguments():
+    """Construct additional time-to-live arguments when declaring a queue."""
+
+    queue_ttl: Optional[timedelta] = None
+    """Expires and deletes the queue after a period of inactivity.
+    The timedelta must be able to be casted into a positive integer."""
+    message_ttl: Optional[timedelta] = None
+    """Expires and deletes the message within the queue after the defined TTL.
+    The timedelta must be able to be casted into a non-negative integer."""
+    dead_letter_routing_key: Optional[str] = None
+    """When specified, the expired message is republished to the designated dead letter queue.
+    If not set, the message's own routing key is used."""
+    dead_letter_exchange: Optional[str] = None
+    """Dead letter exchange name."""
+
+    def to_argument(self) -> Dict[str, Union[str, int]]:
+        arguments: Dict[str, Union[str, int]] = {}
+
+        if self.queue_ttl is not None:
+            if self.queue_ttl <= timedelta(0):
+                raise ValueError("queue_ttl must be a positive value, " +
+                                 f"{self.queue_ttl} received.")
+            arguments["x-expires"] = int(self.queue_ttl.total_seconds() * 1000)
+        if self.message_ttl is not None:
+            if self.message_ttl < timedelta(0):
+                raise ValueError("message_ttl can not be a negative value, " +
+                                 f"{self.message_ttl} received.")
+            if self.queue_ttl is not None and self.message_ttl > self.queue_ttl:
+                # Raise an error as it serves no purpose.
+                raise ValueError("message_ttl shall be smaller or equal to queue_ttl.")
+            arguments["x-message-ttl"] = int(self.message_ttl.total_seconds() * 1000)
+        if self.dead_letter_routing_key is not None:
+            arguments["x-dead-letter-routing-key"] = str(self.dead_letter_routing_key)
+        if self.dead_letter_exchange is not None:
+            arguments["x-dead-letter-exchange"] = str(self.dead_letter_exchange)
+        return arguments
 
 
 class BrokerInterface(threading.Thread):
@@ -222,6 +262,7 @@ class BrokerInterface(threading.Thread):
         queue_type: AMQPQueueType,
         bind_to_routing_key: Optional[str] = None,
         exchange_name: Optional[str] = None,
+        queue_message_ttl: Optional[QueueMessageTTLArguments] = None
     ) -> AbstractQueue:
         """Declare an AMQP queue.
 
@@ -231,6 +272,7 @@ class BrokerInterface(threading.Thread):
             key of the queue name. If none, the queue is only bound to the name of the queue.
             If not none, then the exchange_name must be set as well.
         :param exchange_name: Name of the exchange on which the messages will be published.
+        :param queue_message_ttl: Additional arguments to specify queue or message TTL.
         """
         if bind_to_routing_key is not None and exchange_name is None:
             raise RuntimeError(
@@ -238,8 +280,18 @@ class BrokerInterface(threading.Thread):
                 f"exchange name was provided."
             )
 
-        logger.info("Declaring queue %s as %s", queue_name, queue_type)
-        queue = await self._channel.declare_queue(queue_name, **queue_type.to_argument())
+        if queue_message_ttl is not None:
+            ttl_arguments = queue_message_ttl.to_argument()
+        else:
+            ttl_arguments = None
+
+        logger.info("Declaring queue %s as %s with arguments as %s",
+                    queue_name,
+                    queue_type,
+                    ttl_arguments)
+        queue = await self._channel.declare_queue(queue_name,
+                                                  **queue_type.to_argument(),
+                                                  arguments=ttl_arguments)
 
         if exchange_name is not None:
             if exchange_name not in self._exchanges:
@@ -260,6 +312,7 @@ class BrokerInterface(threading.Thread):
         bind_to_routing_key: Optional[str] = None,
         exchange_name: Optional[str] = None,
         delete_after_messages: Optional[int] = None,
+        queue_message_ttl: Optional[QueueMessageTTLArguments] = None
     ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
@@ -273,6 +326,7 @@ class BrokerInterface(threading.Thread):
         :param exchange_name: Name of the exchange on which the messages will be published.
         :param delete_after_messages: Delete the subscription & queue after this limit of messages
             have been successfully processed.
+        :param queue_message_ttl: Additional arguments to specify queue or message TTL.
         """
         if queue_name in self._queue_subscription_consumer_by_name:
             logger.error(
@@ -282,8 +336,10 @@ class BrokerInterface(threading.Thread):
             raise RuntimeError(f"Queue subscription for {queue_name} already exists.")
 
         queue = await self._declare_queue(
-            queue_name, queue_type, bind_to_routing_key, exchange_name
+            queue_name, queue_type, bind_to_routing_key, exchange_name, queue_message_ttl
         )
+
+        # TODO: able to log a warning when the queue is removed due to reaching TTL?
 
         queue_consumer = QueueSubscriptionConsumer(
             queue, delete_after_messages, callback_on_message
@@ -393,6 +449,7 @@ class BrokerInterface(threading.Thread):
         queue_type: AMQPQueueType,
         bind_to_routing_key: Optional[str] = None,
         exchange_name: Optional[str] = None,
+        queue_message_ttl: Optional[QueueMessageTTLArguments] = None
     ) -> None:
         """Declare an AMQP queue.
 
@@ -402,6 +459,7 @@ class BrokerInterface(threading.Thread):
             key of the queue name. If none, the queue is only bound to the name of the queue.
             If not none, then the exchange_name must be set as well.
         :param exchange_name: Name of the exchange on which the messages will be published.
+        :param queue_message_ttl: Additional arguments to specify queue or message TTL.
         """
         asyncio.run_coroutine_threadsafe(
             self._declare_queue(
@@ -409,6 +467,7 @@ class BrokerInterface(threading.Thread):
                 queue_type=queue_type,
                 bind_to_routing_key=bind_to_routing_key,
                 exchange_name=exchange_name,
+                queue_message_ttl=queue_message_ttl,
             ),
             self._loop,
         ).result()
@@ -421,6 +480,7 @@ class BrokerInterface(threading.Thread):
         bind_to_routing_key: Optional[str] = None,
         exchange_name: Optional[str] = None,
         delete_after_messages: Optional[int] = None,
+        queue_message_ttl: Optional[QueueMessageTTLArguments] = None
     ) -> None:
         """Declare an AMQP queue and subscribe to the messages.
 
@@ -433,6 +493,7 @@ class BrokerInterface(threading.Thread):
         :param exchange_name: Name of the exchange on which the messages will be published.
         :param delete_after_messages: Delete the subscription & queue after this limit of messages
             have been successfully processed.
+        :param queue_message_ttl: Additional arguments to specify queue or message TTL.
         """
         asyncio.run_coroutine_threadsafe(
             self._declare_queue_and_add_subscription(
@@ -442,6 +503,7 @@ class BrokerInterface(threading.Thread):
                 bind_to_routing_key=bind_to_routing_key,
                 exchange_name=exchange_name,
                 delete_after_messages=delete_after_messages,
+                queue_message_ttl=queue_message_ttl,
             ),
             self._loop,
         ).result()
