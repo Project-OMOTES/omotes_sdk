@@ -105,9 +105,9 @@ class OmotesInterface:
     """How long the SDK should wait for the first reply when requesting the current workflow
     definitions from the orchestrator."""
 
-    JOB_QUEUES_TTL: timedelta = timedelta(hours=49)
+    JOB_QUEUES_TTL: timedelta = timedelta(hours=48)
     """Define job result, progress, and status queues TTL."""
-    JOB_RESULT_MESSAGE_TTL: timedelta = timedelta(hours=48)
+    JOB_RESULT_MESSAGE_TTL: timedelta = timedelta(hours=47, minutes=30)
     """Define job result queue message TTL. Set this value smaller than JOB_QUEUES_TTL
     to ensure the message is dead-lettered before the queue reaches TTL."""
 
@@ -181,6 +181,7 @@ class OmotesInterface:
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
+        auto_cleanup_on_error: bool,
     ) -> None:
         """(Re)connect to the running job.
 
@@ -194,6 +195,9 @@ class OmotesInterface:
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
             once the result is received and handled without exceptions through
             `callback_on_finished`.
+        :param auto_cleanup_on_error: When certain erroneous situations occur, e.g. offline,
+            dead letter the job result message (if available), and remove all queues pertaining
+            to this job after the system configured TTL (48 hours).
         """
         if auto_disconnect_on_result:
             logger.info("Connecting to update for job %s with auto disconnect on result", job.id)
@@ -201,6 +205,23 @@ class OmotesInterface:
         else:
             logger.info("Connecting to update for job %s and expect manual disconnect", job.id)
             auto_disconnect_handler = None
+
+        if auto_cleanup_on_error:
+            logger.info("Auto cleanup on error is %s. " +
+                        "Leftover job queues will be discarded after %s.",
+                        auto_cleanup_on_error, self.JOB_QUEUES_TTL)
+            job_result_queue_message_ttl = QueueMessageTTLArguments(
+                queue_ttl=self.JOB_QUEUES_TTL,
+                message_ttl=self.JOB_RESULT_MESSAGE_TTL,
+                dead_letter_routing_key=OmotesQueueNames.job_result_dead_letter_queue_name(),
+                dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
+            job_progress_status_queue_ttl = QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
+        else:
+            logger.info("Auto cleanup on error is %s. " +
+                        "Manual cleanup on leftover job queues might be required.",
+                        auto_cleanup_on_error)
+            job_result_queue_message_ttl = None
+            job_progress_status_queue_ttl = None
 
         callback_handler = JobSubmissionCallbackHandler(
             job,
@@ -210,8 +231,7 @@ class OmotesInterface:
             auto_disconnect_handler,
         )
 
-        # TODO: raise an error if job queues are deleted due to TTL
-        # and not found when the client reconnects.
+        # TODO: raise an error if job queues are not found when the client reconnects.
 
         self.broker_if.declare_queue_and_add_subscription(
             queue_name=OmotesQueueNames.job_results_queue_name(job.id),
@@ -219,11 +239,7 @@ class OmotesInterface:
             queue_type=AMQPQueueType.DURABLE,
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
             delete_after_messages=1,
-            queue_message_ttl=QueueMessageTTLArguments(
-                queue_ttl=self.JOB_QUEUES_TTL,
-                message_ttl=self.JOB_RESULT_MESSAGE_TTL,
-                dead_letter_routing_key=OmotesQueueNames.job_result_dead_letter_queue_name(),
-                dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
+            queue_message_ttl=job_result_queue_message_ttl
         )
         if callback_on_progress_update:
             self.broker_if.declare_queue_and_add_subscription(
@@ -231,7 +247,7 @@ class OmotesInterface:
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
-                queue_message_ttl=QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
+                queue_message_ttl=job_progress_status_queue_ttl
             )
         if callback_on_status_update:
             self.broker_if.declare_queue_and_add_subscription(
@@ -239,7 +255,7 @@ class OmotesInterface:
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
-                queue_message_ttl=QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
+                queue_message_ttl=job_progress_status_queue_ttl
             )
 
     def submit_job(
@@ -252,6 +268,7 @@ class OmotesInterface:
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
+        auto_cleanup_on_error: bool = True,
     ) -> Job:
         """Submit a new job and connect to progress and status updates and the job result.
 
@@ -269,6 +286,9 @@ class OmotesInterface:
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
             once the result is received and handled without exceptions through
             `callback_on_finished`.
+        :param auto_cleanup_on_error: When certain erroneous situations occur, e.g. offline,
+            dead letter the job result message (if available), and remove all queues pertaining
+            to this job after the system configured TTL (48 hours). Default to True.
         :raises UnknownWorkflowException: If `workflow_type` is unknown as a possible workflow in
             this interface.
         :return: The job handle which is created. This object needs to be saved persistently by the
@@ -287,6 +307,7 @@ class OmotesInterface:
             callback_on_progress_update,
             callback_on_status_update,
             auto_disconnect_on_result,
+            auto_cleanup_on_error
         )
 
         if job_timeout is not None:
