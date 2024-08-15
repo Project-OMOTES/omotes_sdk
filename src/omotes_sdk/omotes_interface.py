@@ -222,7 +222,7 @@ class OmotesInterface:
             queue_message_ttl=QueueMessageTTLArguments(
                 queue_ttl=self.JOB_QUEUES_TTL,
                 message_ttl=self.JOB_RESULT_MESSAGE_TTL,
-                dead_letter_routing_key=OmotesQueueNames.dead_letter_queue_name(),
+                dead_letter_routing_key=OmotesQueueNames.job_result_dead_letter_queue_name(),
                 dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
         )
         if callback_on_progress_update:
