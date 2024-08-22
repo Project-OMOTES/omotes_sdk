@@ -7,7 +7,7 @@ from enum import Enum
 from functools import partial
 import threading
 from types import TracebackType
-from typing import Callable, Optional, Dict, Type, TypedDict, Union
+from typing import Callable, Optional, Dict, Type, TypedDict, cast
 from datetime import timedelta
 
 from aio_pika import connect_robust, Message, DeliveryMode
@@ -18,6 +18,7 @@ from aio_pika.abc import (
     AbstractIncomingMessage,
     AbstractExchange,
 )
+from pamqp.common import Arguments
 
 from omotes_sdk.config import RabbitMQConfig
 
@@ -130,18 +131,24 @@ class QueueMessageTTLArguments():
     dead_letter_exchange: Optional[str] = None
     """Dead letter exchange name."""
 
-    def to_argument(self) -> Dict[str, Union[str, int]]:
-        arguments: Dict[str, Union[str, int]] = {}
+    def to_argument(self) -> Arguments:
+        """Convert the time-to-live variables to the aio-pika `declare_queue` keyword arguments.
+
+        :return: The time-to-live keyword arguments in AMQP method arguments data type.
+        """
+        arguments: Arguments = {}
+        # Ensure this is not None to avoid typecheck error.
+        arguments = cast(dict, arguments)
 
         if self.queue_ttl is not None:
             if self.queue_ttl <= timedelta(0):
-                raise ValueError("queue_ttl must be a positive value, " +
-                                 f"{self.queue_ttl} received.")
+                raise ValueError("queue_ttl must be a positive value, "
+                                 + f"{self.queue_ttl} received.")
             arguments["x-expires"] = int(self.queue_ttl.total_seconds() * 1000)
         if self.message_ttl is not None:
             if self.message_ttl < timedelta(0):
-                raise ValueError("message_ttl can not be a negative value, " +
-                                 f"{self.message_ttl} received.")
+                raise ValueError("message_ttl can not be a negative value, "
+                                 + f"{self.message_ttl} received.")
             if self.queue_ttl is not None and self.message_ttl > self.queue_ttl:
                 # Raise an error as it serves no purpose.
                 raise ValueError("message_ttl shall be smaller or equal to queue_ttl.")
@@ -338,8 +345,6 @@ class BrokerInterface(threading.Thread):
         queue = await self._declare_queue(
             queue_name, queue_type, bind_to_routing_key, exchange_name, queue_message_ttl
         )
-
-        # TODO: able to log a warning when the queue is removed due to reaching TTL?
 
         queue_consumer = QueueSubscriptionConsumer(
             queue, delete_after_messages, callback_on_message

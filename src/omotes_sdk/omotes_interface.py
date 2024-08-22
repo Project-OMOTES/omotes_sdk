@@ -207,8 +207,8 @@ class OmotesInterface:
             auto_disconnect_handler = None
 
         if auto_cleanup_on_error:
-            logger.info("Auto cleanup on error is %s. " +
-                        "Leftover job queues will be discarded after %s.",
+            logger.info("Auto cleanup on error is %s. "
+                        + "Leftover job queues will be discarded after %s.",
                         auto_cleanup_on_error, self.JOB_QUEUES_TTL)
             job_result_queue_message_ttl = QueueMessageTTLArguments(
                 queue_ttl=self.JOB_QUEUES_TTL,
@@ -217,8 +217,8 @@ class OmotesInterface:
                 dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
             job_progress_status_queue_ttl = QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
         else:
-            logger.info("Auto cleanup on error is %s. " +
-                        "Manual cleanup on leftover job queues might be required.",
+            logger.info("Auto cleanup on error is %s. "
+                        + "Manual cleanup on leftover job queues might be required.",
                         auto_cleanup_on_error)
             job_result_queue_message_ttl = None
             job_progress_status_queue_ttl = None
