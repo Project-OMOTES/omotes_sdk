@@ -105,11 +105,10 @@ class OmotesInterface:
     """How long the SDK should wait for the first reply when requesting the current workflow
     definitions from the orchestrator."""
 
-    JOB_QUEUES_TTL: timedelta = timedelta(hours=48)
-    """Define job result, progress, and status queues TTL."""
-    JOB_RESULT_MESSAGE_TTL: timedelta = timedelta(hours=47, minutes=30)
-    """Define job result queue message TTL. Set this value smaller than JOB_QUEUES_TTL
-    to ensure the message is dead-lettered before the queue reaches TTL."""
+    JOB_RESULT_MESSAGE_TTL: timedelta = timedelta(hours=48)
+    """Default value of job result message TTL."""
+    JOB_QUEUES_REMOVAL_BUFFER: timedelta = timedelta(seconds=30)
+    """To ensure job result, progress, and status queues are removed after this time buffer."""
 
     def __init__(
         self,
@@ -181,7 +180,7 @@ class OmotesInterface:
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
-        auto_cleanup_on_error: bool,
+        auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL
     ) -> None:
         """(Re)connect to the running job.
 
@@ -195,9 +194,10 @@ class OmotesInterface:
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
             once the result is received and handled without exceptions through
             `callback_on_finished`.
-        :param auto_cleanup_on_error: When certain erroneous situations occur, e.g. offline,
-            dead letter the job result message (if available), and remove all queues pertaining
-            to this job after the system configured TTL (48 hours).
+        :param auto_dead_letter_after_ttl: When erroneous situations occur (e.g. client is offline),
+            the job result message (if available) will be dead lettered after the given TTL,
+            and all queues of this job will be removed subsequently. Default to 48 hours if unset.
+            Set to `None` to turn off auto dead letter and clean up.
         """
         if auto_disconnect_on_result:
             logger.info("Connecting to update for job %s with auto disconnect on result", job.id)
@@ -206,20 +206,22 @@ class OmotesInterface:
             logger.info("Connecting to update for job %s and expect manual disconnect", job.id)
             auto_disconnect_handler = None
 
-        if auto_cleanup_on_error:
-            logger.info("Auto cleanup on error is %s. "
-                        + "Leftover job queues will be discarded after %s.",
-                        auto_cleanup_on_error, self.JOB_QUEUES_TTL)
+        if auto_dead_letter_after_ttl is not None:
+            message_ttl = auto_dead_letter_after_ttl
+            queue_ttl = auto_dead_letter_after_ttl + self.JOB_QUEUES_REMOVAL_BUFFER
+            logger.info("Auto dead letter and cleanup on error after TTL is set. "
+                        + "The leftover job result message will be dead lettered after %s, "
+                        + "and leftover job queues will be discarded after %s.",
+                        message_ttl, queue_ttl)
             job_result_queue_message_ttl = QueueMessageTTLArguments(
-                queue_ttl=self.JOB_QUEUES_TTL,
-                message_ttl=self.JOB_RESULT_MESSAGE_TTL,
+                queue_ttl=queue_ttl,
+                message_ttl=message_ttl,
                 dead_letter_routing_key=OmotesQueueNames.job_result_dead_letter_queue_name(),
                 dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
-            job_progress_status_queue_ttl = QueueMessageTTLArguments(queue_ttl=self.JOB_QUEUES_TTL)
+            job_progress_status_queue_ttl = QueueMessageTTLArguments(queue_ttl=queue_ttl)
         else:
-            logger.info("Auto cleanup on error is %s. "
-                        + "Manual cleanup on leftover job queues might be required.",
-                        auto_cleanup_on_error)
+            logger.info("Auto dead letter and cleanup on error after TTL is not set. "
+                        + "Manual cleanup on leftover job queues and messages might be required.")
             job_result_queue_message_ttl = None
             job_progress_status_queue_ttl = None
 
@@ -268,7 +270,7 @@ class OmotesInterface:
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
-        auto_cleanup_on_error: bool = True,
+        auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL
     ) -> Job:
         """Submit a new job and connect to progress and status updates and the job result.
 
@@ -286,9 +288,10 @@ class OmotesInterface:
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
             once the result is received and handled without exceptions through
             `callback_on_finished`.
-        :param auto_cleanup_on_error: When certain erroneous situations occur, e.g. offline,
-            dead letter the job result message (if available), and remove all queues pertaining
-            to this job after the system configured TTL (48 hours). Default to True.
+        :param auto_dead_letter_after_ttl: When erroneous situations occur (e.g. client is offline),
+            the job result message (if available) will be dead lettered after the given TTL,
+            and all queues of this job will be removed subsequently. Default to 48 hours if unset.
+            Set to `None` to turn off auto dead letter and clean up.
         :raises UnknownWorkflowException: If `workflow_type` is unknown as a possible workflow in
             this interface.
         :return: The job handle which is created. This object needs to be saved persistently by the
@@ -307,7 +310,7 @@ class OmotesInterface:
             callback_on_progress_update,
             callback_on_status_update,
             auto_disconnect_on_result,
-            auto_cleanup_on_error
+            auto_dead_letter_after_ttl
         )
 
         if job_timeout is not None:
