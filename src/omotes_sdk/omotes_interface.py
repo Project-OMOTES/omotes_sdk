@@ -197,7 +197,9 @@ class OmotesInterface:
         :param auto_dead_letter_after_ttl: When erroneous situations occur (e.g. client is offline),
             the job result message (if available) will be dead lettered after the given TTL,
             and all queues of this job will be removed subsequently. Default to 48 hours if unset.
-            Set to `None` to turn off auto dead letter and clean up.
+            Set to `None` to turn off auto dead letter and clean up, but be aware this may lead to
+            messages and queues to be stored in RabbitMQ indefinitely
+            (which uses up memory & disk space).
         """
         if auto_disconnect_on_result:
             logger.info("Connecting to update for job %s with auto disconnect on result", job.id)
@@ -291,7 +293,9 @@ class OmotesInterface:
         :param auto_dead_letter_after_ttl: When erroneous situations occur (e.g. client is offline),
             the job result message (if available) will be dead lettered after the given TTL,
             and all queues of this job will be removed subsequently. Default to 48 hours if unset.
-            Set to `None` to turn off auto dead letter and clean up.
+            Set to `None` to turn off auto dead letter and clean up, but be aware this may lead to
+            messages and queues to be stored in RabbitMQ indefinitely
+            (which uses up memory & disk space).
         :raises UnknownWorkflowException: If `workflow_type` is unknown as a possible workflow in
             this interface.
         :return: The job handle which is created. This object needs to be saved persistently by the

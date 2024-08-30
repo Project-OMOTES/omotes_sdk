@@ -120,16 +120,20 @@ class QueueMessageTTLArguments():
     """Construct additional time-to-live arguments when declaring a queue."""
 
     queue_ttl: Optional[timedelta] = None
-    """Expires and deletes the queue after a period of inactivity.
-    The timedelta must be able to be casted into a positive integer."""
+    """Expires and deletes the queue after a period of time when it is not used.
+    The timedelta must be convertible into a positive integer.
+    Ref: https://www.rabbitmq.com/docs/ttl#queue-ttl"""
     message_ttl: Optional[timedelta] = None
     """Expires and deletes the message within the queue after the defined TTL.
-    The timedelta must be able to be casted into a non-negative integer."""
+    The timedelta must be convertible into a non-negative integer.
+    Ref: https://www.rabbitmq.com/docs/ttl#per-queue-message-ttl"""
     dead_letter_routing_key: Optional[str] = None
     """When specified, the expired message is republished to the designated dead letter queue.
-    If not set, the message's own routing key is used."""
+    If not set, the message's own routing key is used.
+    Ref: https://www.rabbitmq.com/docs/dlx#routing"""
     dead_letter_exchange: Optional[str] = None
-    """Dead letter exchange name."""
+    """Dead letter exchange name.
+    Ref: https://www.rabbitmq.com/docs/dlx"""
 
     def to_argument(self) -> Arguments:
         """Convert the time-to-live variables to the aio-pika `declare_queue` keyword arguments.
