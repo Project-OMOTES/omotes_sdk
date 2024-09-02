@@ -27,13 +27,13 @@ logger = logging.getLogger("omotes_sdk")
 class WrongFieldTypeException(Exception):
     """Thrown when param_dict contains a value of the wrong type for some parameter."""
 
-    ...
+    ...  # pragma: no cover
 
 
 class MissingFieldException(Exception):
     """Thrown when param_dict does not contain the value for some parameter."""
 
-    ...
+    ...  # pragma: no cover
 
 
 @dataclass(eq=True, frozen=True)
@@ -66,7 +66,7 @@ class WorkflowParameter(ABC):
         conversions. It is used to convert the workflow parameter from the Python description
         to the protobuf definition in AvailableWorkflows.
         """
-        ...
+        ...  # pragma: no cover
 
     @abstractmethod
     def to_pb_message(self) -> Union[
@@ -80,7 +80,7 @@ class WorkflowParameter(ABC):
 
         :return: Protobuf message representation.
         """
-        ...
+        ...  # pragma: no cover
 
     @classmethod
     @abstractmethod
@@ -95,7 +95,7 @@ class WorkflowParameter(ABC):
         :param parameter_type_pb: protobuf message containing the parameter type parameters.
         :return: class instance.
         """
-        ...
+        ...  # pragma: no cover
 
     @classmethod
     @abstractmethod
@@ -105,7 +105,7 @@ class WorkflowParameter(ABC):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
-        ...
+        ...  # pragma: no cover
 
     @staticmethod
     @abstractmethod
@@ -115,7 +115,7 @@ class WorkflowParameter(ABC):
         Protobuf structs do not support int, datetime or timestamps natively. This function is
         used to unpack the value from a protobuf-compatible datatype.
         """
-        ...
+        ...  # pragma: no cover
 
     @staticmethod
     @abstractmethod
@@ -125,7 +125,7 @@ class WorkflowParameter(ABC):
         Protobuf structs do not support int, datetime or timestamps natively. This function is
         used to unpack the value to a protobuf-compatible datatype.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @dataclass(eq=True, frozen=True)
