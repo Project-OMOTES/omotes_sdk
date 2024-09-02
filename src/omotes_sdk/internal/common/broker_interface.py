@@ -18,6 +18,7 @@ from aio_pika.abc import (
     AbstractIncomingMessage,
     AbstractExchange,
 )
+from aio_pika.exceptions import ChannelClosed
 from pamqp.common import Arguments
 
 from omotes_sdk.config import RabbitMQConfig
@@ -361,6 +362,19 @@ class BrokerInterface(threading.Thread):
         )
         self._queue_subscription_tasks[queue_name] = queue_subscription_task
 
+    async def _queue_exists(self, queue_name: str) -> bool:
+        """Check if the queue exists.
+
+        :param queue_name: Name of the queue to be checked.
+        """
+        try:
+            await self._channel.get_queue(queue_name, ensure=True)
+            logger.info("The %s queue exists", queue_name)
+            return True
+        except ChannelClosed as err:
+            logger.warning(err)
+            return False
+
     async def _remove_queue_subscription(self, queue_name: str) -> None:
         """Remove subscription from queue and delete the queue if one exists.
 
@@ -515,6 +529,15 @@ class BrokerInterface(threading.Thread):
                 queue_message_ttl=queue_message_ttl,
             ),
             self._loop,
+        ).result()
+
+    def queue_exists(self, queue_name: str) -> bool:
+        """Check if the queue exists.
+
+        :param queue_name: Name of the queue to be checked.
+        """
+        return asyncio.run_coroutine_threadsafe(
+            self._queue_exists(queue_name=queue_name), self._loop
         ).result()
 
     def remove_queue_subscription(self, queue_name: str) -> None:

@@ -107,8 +107,6 @@ class OmotesInterface:
 
     JOB_RESULT_MESSAGE_TTL: timedelta = timedelta(hours=48)
     """Default value of job result message TTL."""
-    JOB_QUEUES_REMOVAL_BUFFER: timedelta = timedelta(seconds=30)
-    """To ensure job result, progress, and status queues are removed after this time buffer."""
 
     def __init__(
         self,
@@ -180,7 +178,8 @@ class OmotesInterface:
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
-        auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL
+        auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL,
+        reconnect: bool = True
     ) -> None:
         """(Re)connect to the running job.
 
@@ -200,7 +199,34 @@ class OmotesInterface:
             Set to `None` to turn off auto dead letter and clean up, but be aware this may lead to
             messages and queues to be stored in RabbitMQ indefinitely
             (which uses up memory & disk space).
+        :param reconnect: When True, first check the job queues status and raise an error if not
+            exist. Default to True.
         """
+        job_results_queue_name = OmotesQueueNames.job_results_queue_name(job.id)
+        job_progress_queue_name = OmotesQueueNames.job_progress_queue_name(job.id)
+        job_status_queue_name = OmotesQueueNames.job_status_queue_name(job.id)
+
+        if reconnect:
+            logger.info("Reconnect to the submitted job %s is set to True. "
+                        + "Checking job queues status...", job.id)
+            if not self.broker_if.queue_exists(job_results_queue_name):
+                raise RuntimeError(
+                    f"The {job_results_queue_name} queue does not exist or is removed. "
+                    "Abort reconnecting to the queue."
+                )
+            if (callback_on_progress_update
+                    and not self.broker_if.queue_exists(job_progress_queue_name)):
+                raise RuntimeError(
+                    f"The {job_progress_queue_name} queue does not exist or is removed. "
+                    "Abort reconnecting to the queue."
+                )
+            if (callback_on_status_update
+                    and not self.broker_if.queue_exists(job_status_queue_name)):
+                raise RuntimeError(
+                    f"The {job_status_queue_name} queue does not exist or is removed. "
+                    "Abort reconnecting to the queue."
+                )
+
         if auto_disconnect_on_result:
             logger.info("Connecting to update for job %s with auto disconnect on result", job.id)
             auto_disconnect_handler = self._autodelete_progres_status_queues_on_result
@@ -208,9 +234,11 @@ class OmotesInterface:
             logger.info("Connecting to update for job %s and expect manual disconnect", job.id)
             auto_disconnect_handler = None
 
+        # TODO: handle reconnection after the message is dead lettered but queue still exists.
+
         if auto_dead_letter_after_ttl is not None:
             message_ttl = auto_dead_letter_after_ttl
-            queue_ttl = auto_dead_letter_after_ttl + self.JOB_QUEUES_REMOVAL_BUFFER
+            queue_ttl = auto_dead_letter_after_ttl * 2
             logger.info("Auto dead letter and cleanup on error after TTL is set. "
                         + "The leftover job result message will be dead lettered after %s, "
                         + "and leftover job queues will be discarded after %s.",
@@ -235,10 +263,8 @@ class OmotesInterface:
             auto_disconnect_handler,
         )
 
-        # TODO: raise an error if job queues are not found when the client reconnects.
-
         self.broker_if.declare_queue_and_add_subscription(
-            queue_name=OmotesQueueNames.job_results_queue_name(job.id),
+            queue_name=job_results_queue_name,
             callback_on_message=callback_handler.callback_on_finished_wrapped,
             queue_type=AMQPQueueType.DURABLE,
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
@@ -247,7 +273,7 @@ class OmotesInterface:
         )
         if callback_on_progress_update:
             self.broker_if.declare_queue_and_add_subscription(
-                queue_name=OmotesQueueNames.job_progress_queue_name(job.id),
+                queue_name=job_progress_queue_name,
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
@@ -255,7 +281,7 @@ class OmotesInterface:
             )
         if callback_on_status_update:
             self.broker_if.declare_queue_and_add_subscription(
-                queue_name=OmotesQueueNames.job_status_queue_name(job.id),
+                queue_name=job_status_queue_name,
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
@@ -307,6 +333,7 @@ class OmotesInterface:
             raise UnknownWorkflowException()
 
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
+        reconnect = False
         logger.info("Submitting job %s", job.id)
         self.connect_to_submitted_job(
             job,
@@ -314,7 +341,8 @@ class OmotesInterface:
             callback_on_progress_update,
             callback_on_status_update,
             auto_disconnect_on_result,
-            auto_dead_letter_after_ttl
+            auto_dead_letter_after_ttl,
+            reconnect
         )
 
         if job_timeout is not None:
