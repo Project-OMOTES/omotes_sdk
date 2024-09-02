@@ -19,8 +19,7 @@ from omotes_sdk_protocol.workflow_pb2 import (
 )
 from google.protobuf.struct_pb2 import Struct
 
-from omotes_sdk.types import ParamsDictValues, PBStructCompatibleTypes, ParamsDict
-
+from omotes_sdk.types import ParamsDictValues, PBStructCompatibleTypes, ParamsDict, ProtobufDict
 
 logger = logging.getLogger("omotes_sdk")
 
@@ -61,6 +60,12 @@ class WorkflowParameter(ABC):
             DateTimeParameterPb,
         ]
     ]:
+        """Abstract function to link this parameter to the protobuf parameter description.
+
+        This link is required for sharing the workflow definitions and not for params_dict
+        conversions. It is used to convert the workflow parameter from the Python description
+        to the protobuf definition in AvailableWorkflows.
+        """
         pass
 
     @abstractmethod
@@ -105,11 +110,21 @@ class WorkflowParameter(ABC):
     @staticmethod
     @abstractmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> ParamsDictValues:
+        """Abstract function to deserialize the value from a protobuf struct to its original type.
+
+        Protobuf structs do not support int, datetime or timestamps natively. This function is
+        used to unpack the value from a protobuf-compatible datatype.
+        """
         pass
 
     @staticmethod
     @abstractmethod
     def to_pb_value(value: ParamsDictValues) -> PBStructCompatibleTypes:
+        """Abstract function to serialize the value to a protobuf-struct-compatible value.
+
+        Protobuf structs do not support int, datetime or timestamps natively. This function is
+        used to unpack the value to a protobuf-compatible datatype.
+        """
         pass
 
 
@@ -146,6 +161,10 @@ class StringParameter(WorkflowParameter):
             DateTimeParameterPb,
         ]
     ]:
+        """Link the StringParameter description to the Protobuf StringParameter class.
+
+        :return: StringParameterPb class.
+        """
         return StringParameterPb
 
     @override
@@ -234,6 +253,11 @@ class StringParameter(WorkflowParameter):
 
     @staticmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> str:
+        """Parse protobuf string to Python string.
+
+        :param value: The protobuf string value to parse.
+        :return: Parsed string
+        """
         if isinstance(value, str):
             return value
         else:
@@ -244,6 +268,11 @@ class StringParameter(WorkflowParameter):
 
     @staticmethod
     def to_pb_value(value: ParamsDictValues) -> str:
+        """Pack a Python string into a protobuf string.
+
+        :param value: Python string.
+        :return: The protobuf packed string.
+        """
         if isinstance(value, str):
             return value
         else:
@@ -272,6 +301,10 @@ class BooleanParameter(WorkflowParameter):
             DateTimeParameterPb,
         ]
     ]:
+        """Link the BooleanParameter description to the Protobuf BooleanParameter class.
+
+        :return: BooleanParameterPb class.
+        """
         return BooleanParameterPb
 
     @override
@@ -317,6 +350,11 @@ class BooleanParameter(WorkflowParameter):
 
     @staticmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> bool:
+        """Unpack the protobuf boolean value to a Python boolean value.
+
+        :param value: The protobuf boolean.
+        :return: Python boolean value.
+        """
         if isinstance(value, bool):
             return value
         else:
@@ -327,6 +365,11 @@ class BooleanParameter(WorkflowParameter):
 
     @staticmethod
     def to_pb_value(value: ParamsDictValues) -> bool:
+        """Pack the Python boolean value into a protobuf-compatible boolean value.
+
+        :param value: The Python boolean.
+        :return: Protobuf-compatible boolean.
+        """
         if isinstance(value, bool):
             return value
         else:
@@ -350,15 +393,11 @@ class IntegerParameter(WorkflowParameter):
     """Optional maximum allowed value."""
 
     @staticmethod
-    def get_pb_protocol_equivalent() -> Type[
-        Union[
-            StringParameterPb,
-            BooleanParameterPb,
-            IntegerParameterPb,
-            FloatParameterPb,
-            DateTimeParameterPb,
-        ]
-    ]:
+    def get_pb_protocol_equivalent() -> Type[IntegerParameterPb]:
+        """Link the IntegerParameter description to the Protobuf IntegerParameter class.
+
+        :return: IntegerParameterPb class.
+        """
         return IntegerParameterPb
 
     @override
@@ -412,12 +451,17 @@ class IntegerParameter(WorkflowParameter):
 
     @staticmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> int:
+        """Unpack the protobuf float value into a Python integer value.
+
+        :param value: The protobuf float value.
+        :return: The Python integer value.
+        """
         if isinstance(value, float):
             result = round(value)
             if value != result:
                 logger.warning(
-                    "A field was passed in workflow configuration but as a float value with decimal "
-                    "instead of a rounded float. Rounding the field value from %s to %s.",
+                    "A field was passed in workflow configuration but as a float value with "
+                    "decimal instead of a rounded float. Rounding the field value from %s to %s.",
                     value,
                     result,
                 )
@@ -432,6 +476,11 @@ class IntegerParameter(WorkflowParameter):
 
     @staticmethod
     def to_pb_value(value: ParamsDictValues) -> float:
+        """Pack the Python integer into a protobuf float.
+
+        :param value: Python integer.
+        :return: Protobuf float.
+        """
         if isinstance(value, int):
             return float(value)
         else:
@@ -455,15 +504,11 @@ class FloatParameter(WorkflowParameter):
     """Optional maximum allowed value."""
 
     @staticmethod
-    def get_pb_protocol_equivalent() -> Type[
-        Union[
-            StringParameterPb,
-            BooleanParameterPb,
-            IntegerParameterPb,
-            FloatParameterPb,
-            DateTimeParameterPb,
-        ]
-    ]:
+    def get_pb_protocol_equivalent() -> Type[FloatParameterPb]:
+        """Link this FloatParameter class to the FloatParameter protobuf class.
+
+        :return: The FloatParameterPb class.
+        """
         return FloatParameterPb
 
     @override
@@ -522,6 +567,11 @@ class FloatParameter(WorkflowParameter):
 
     @staticmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> float:
+        """Unpack the Python float from a protobuf float.
+
+        :param value: Protobuf float.
+        :return: Python float.
+        """
         if isinstance(value, float):
             return value
         else:
@@ -532,6 +582,11 @@ class FloatParameter(WorkflowParameter):
 
     @staticmethod
     def to_pb_value(value: ParamsDictValues) -> float:
+        """Pack the Python float into a protobuf float.
+
+        :param value: Python float.
+        :return: Protobuf float.
+        """
         if isinstance(value, float):
             return value
         else:
@@ -551,15 +606,11 @@ class DateTimeParameter(WorkflowParameter):
     """Optional default value."""
 
     @staticmethod
-    def get_pb_protocol_equivalent() -> Type[
-        Union[
-            StringParameterPb,
-            BooleanParameterPb,
-            IntegerParameterPb,
-            FloatParameterPb,
-            DateTimeParameterPb,
-        ]
-    ]:
+    def get_pb_protocol_equivalent() -> Type[DateTimeParameterPb]:
+        """Link the DateTimeParameter class to the protobuf DateTimeParameter class.
+
+        :return: The DateTimeParameterPb class.
+        """
         return DateTimeParameterPb
 
     @override
@@ -624,6 +675,11 @@ class DateTimeParameter(WorkflowParameter):
 
     @staticmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> datetime:
+        """Unpack a Python datetime from a protobuf float.
+
+        :param value: The protobuf float which is a packed Python datetime.
+        :return: The Python datetime.
+        """
         if isinstance(value, float):
             return datetime.fromtimestamp(value)
         else:
@@ -634,6 +690,11 @@ class DateTimeParameter(WorkflowParameter):
 
     @staticmethod
     def to_pb_value(value: ParamsDictValues) -> float:
+        """Pack the Python datetime into a protobuf-compatible float.
+
+        :param value: The Python datetime.
+        :return: The packed datetime as a protobuf-compatible float.
+        """
         if isinstance(value, datetime):
             return value.timestamp()
         else:
@@ -653,7 +714,7 @@ PARAMETER_CLASS_TO_PB_CLASS: Dict[
         Type[DateTimeParameterPb],
     ],
 ] = {
-    parameter: parameter.get_pb_protocol_equivalent()
+    parameter: parameter.get_pb_protocol_equivalent()  # type: ignore[type-abstract]
     for parameter in WorkflowParameter.__subclasses__()
 }
 
@@ -667,7 +728,7 @@ PB_CLASS_TO_PARAMETER_CLASS: Dict[
     ],
     Type[WorkflowParameter],
 ] = {
-    parameter.get_pb_protocol_equivalent(): parameter
+    parameter.get_pb_protocol_equivalent(): parameter  # type: ignore[type-abstract]
     for parameter in WorkflowParameter.__subclasses__()
 }
 
@@ -832,17 +893,21 @@ def convert_params_dict_to_struct(workflow: WorkflowType, params_dict: ParamsDic
 
     If a value is already a Struct-compatible type, then it isn't convert.
 
+    :param workflow: The description of the workflow which contains the description of the
+        expected params_dict.
     :param params_dict: The params dict to convert.
     :return: The protobuf Struct loaded with converted values.
     """
     normalized_dict: Dict[str, PBStructCompatibleTypes] = {}
-
-    for parameter in workflow.workflow_parameters:
+    workflow_parameters = (
+        [] if workflow.workflow_parameters is None else workflow.workflow_parameters
+    )
+    for parameter in workflow_parameters:
         param_value = params_dict.get(parameter.key_name)
 
         if param_value is None:
             raise MissingFieldException(
-                f'Param with key "{parameter.key}" is missing in params_dict.'
+                f'Param with key "{parameter.key_name}" is missing in params_dict.'
             )
 
         normalized_dict[parameter.key_name] = parameter.to_pb_value(param_value)
@@ -857,7 +922,7 @@ V = TypeVar("V", bound=ParamsDictValues)
 
 
 def parse_workflow_config_parameter(
-    workflow_config: ParamsDict,
+    workflow_config: ProtobufDict,
     field_key: str,
     expected_type: Type[WorkflowParameter],
     default_value: Optional[V],
@@ -880,11 +945,10 @@ def parse_workflow_config_parameter(
     """
     maybe_value = workflow_config.get(field_key)
     of_type = type(maybe_value)
-    is_present = field_key in workflow_config
 
-    result: V
+    parsed_value: V
 
-    if not is_present:
+    if maybe_value is None:
         if default_value is not None:
             logger.warning(
                 "%s field was missing in workflow configuration. Using default value %s",
@@ -898,7 +962,6 @@ def parse_workflow_config_parameter(
             )
             raise MissingFieldException()
     else:
-
         try:
             parsed_value = cast(V, expected_type.from_pb_value(maybe_value))
         except WrongFieldTypeException:
