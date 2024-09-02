@@ -66,7 +66,7 @@ class WorkflowParameter(ABC):
         conversions. It is used to convert the workflow parameter from the Python description
         to the protobuf definition in AvailableWorkflows.
         """
-        pass
+        ...
 
     @abstractmethod
     def to_pb_message(self) -> Union[
@@ -80,7 +80,7 @@ class WorkflowParameter(ABC):
 
         :return: Protobuf message representation.
         """
-        pass
+        ...
 
     @classmethod
     @abstractmethod
@@ -95,7 +95,7 @@ class WorkflowParameter(ABC):
         :param parameter_type_pb: protobuf message containing the parameter type parameters.
         :return: class instance.
         """
-        pass
+        ...
 
     @classmethod
     @abstractmethod
@@ -105,7 +105,7 @@ class WorkflowParameter(ABC):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
-        pass
+        ...
 
     @staticmethod
     @abstractmethod
@@ -115,7 +115,7 @@ class WorkflowParameter(ABC):
         Protobuf structs do not support int, datetime or timestamps natively. This function is
         used to unpack the value from a protobuf-compatible datatype.
         """
-        pass
+        ...
 
     @staticmethod
     @abstractmethod
@@ -125,7 +125,7 @@ class WorkflowParameter(ABC):
         Protobuf structs do not support int, datetime or timestamps natively. This function is
         used to unpack the value to a protobuf-compatible datatype.
         """
-        pass
+        ...
 
 
 @dataclass(eq=True, frozen=True)
