@@ -16,11 +16,14 @@ from omotes_sdk_protocol.job_pb2 import (
 )
 from omotes_sdk_protocol.workflow_pb2 import AvailableWorkflows, RequestAvailableWorkflows
 
-from omotes_sdk.internal.worker.params_dict import convert_params_dict_to_struct
 from omotes_sdk.job import Job
 from omotes_sdk.queue_names import OmotesQueueNames
 from omotes_sdk.types import ParamsDict
-from omotes_sdk.workflow_type import WorkflowType, WorkflowTypeManager
+from omotes_sdk.workflow_type import (
+    WorkflowType,
+    WorkflowTypeManager,
+    convert_params_dict_to_struct,
+)
 
 logger = logging.getLogger("omotes_sdk")
 
@@ -279,7 +282,7 @@ class OmotesInterface:
             timeout_ms=timeout_ms,
             workflow_type=workflow_type.workflow_type_name,
             esdl=esdl,
-            params_dict=convert_params_dict_to_struct(params_dict),
+            params_dict=convert_params_dict_to_struct(workflow_type, params_dict),
         )
         self.broker_if.send_message_to(
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
