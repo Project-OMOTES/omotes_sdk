@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from google.protobuf import json_format
 
@@ -15,6 +15,7 @@ from omotes_sdk.workflow_type import (
     FloatParameter,
     WorkflowType,
     WorkflowTypeManager,
+    DurationParameter,
 )
 from omotes_sdk.types import ParamsDict
 
@@ -155,7 +156,7 @@ class TestModule(unittest.TestCase):
             "float": 2.0,
             "int": 3,
             "datetime": datetime.fromisoformat("2019-01-01T01:00:00"),
-            # TODO "timedelta": timedelta(hours=1, seconds=15),
+            "duration": timedelta(hours=1, seconds=15),
         }
 
         workflow_type = WorkflowType(
@@ -167,6 +168,7 @@ class TestModule(unittest.TestCase):
                 FloatParameter(key_name="float"),
                 IntegerParameter(key_name="int"),
                 DateTimeParameter(key_name="datetime"),
+                DurationParameter(key_name="duration"),
             ],
         )
 
@@ -181,7 +183,7 @@ class TestModule(unittest.TestCase):
             "float": 2.0,
             "int": 3.0,
             "datetime": datetime.fromisoformat("2019-01-01T01:00:00").timestamp(),
-            # TODO "timedelta": 3615.0,
+            "duration": 3_615_000.0,
         }
 
         self.assertEqual(json_format.MessageToDict(converted), expected_converted)
@@ -282,22 +284,21 @@ class TestModule(unittest.TestCase):
         expected_param = datetime.fromisoformat("2019-01-01T01:00:00")
         self.assertEqual(param, expected_param)
 
-    # TODO Enable when timedelta integration is added back in
-    # def test__parse_workflow_config_parameter__timedelta(self) -> None:
-    #     # Arrange
-    #     workflow_config = {"some-key": 3615.0}
-    #     field_key = "some-key"
-    #     expected_type = timedelta
-    #     default_value = timedelta(hours=1)
-    #
-    #     # Act
-    #     param = parse_workflow_config_parameter(
-    #         workflow_config, field_key, expected_type, default_value
-    #     )
-    #
-    #     # Assert
-    #     expected_param = timedelta(hours=1, seconds=15)
-    #     self.assertEqual(param, expected_param)
+    def test__parse_workflow_config_parameter__timedelta(self) -> None:
+        # Arrange
+        workflow_config = {"some-key": 3615.0}
+        field_key = "some-key"
+        expected_type = DurationParameter
+        default_value = timedelta(hours=1)
+
+        # Act
+        param = parse_workflow_config_parameter(
+            workflow_config, field_key, expected_type, default_value
+        )
+
+        # Assert
+        expected_param = timedelta(seconds=3.615)
+        self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__key_available_expect_int_but_get_float(self) -> None:
         # Arrange
