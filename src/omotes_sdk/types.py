@@ -6,3 +6,4 @@ ParamsDictValues = Union[
 ]
 ParamsDict = Mapping[str, ParamsDictValues]
 PBStructCompatibleTypes = Union[list, float, str, bool]
+ProtobufDict = Mapping[str, PBStructCompatibleTypes]
