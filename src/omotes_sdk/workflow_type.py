@@ -43,9 +43,9 @@ class WorkflowParameter(ABC):
 
     key_name: str = field(hash=True, compare=True)
     """Key name for the parameter."""
-    title: Union[str, None] = field(default=None, hash=True, compare=True)
+    title: Optional[str] = field(default=None, hash=True, compare=True)
     """Optionally override the 'snake_case to text' 'key_name' (displayed above the input field)."""
-    description: Union[str, None] = field(default=None, hash=True, compare=True)
+    description: Optional[str] = field(default=None, hash=True, compare=True)
     """Optional description (displayed below the input field)."""
     type_name: str = ""
     """Parameter type name, set in child class."""
@@ -147,11 +147,9 @@ class StringParameter(WorkflowParameter):
 
     type_name: str = "string"
     """Parameter type name."""
-    default: Union[str, None] = field(default=None, hash=False, compare=False)
+    default: Optional[str] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    enum_options: Union[List[StringEnumOption], None] = field(
-        default=None, hash=False, compare=False
-    )
+    enum_options: Optional[List[StringEnumOption]] = field(default=None, hash=False, compare=False)
     """Optional multiple choice values."""
 
     @staticmethod
@@ -372,11 +370,11 @@ class IntegerParameter(WorkflowParameter):
 
     type_name: str = "integer"
     """Parameter type name."""
-    default: Union[int, None] = field(default=None, hash=False, compare=False)
+    default: Optional[int] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    minimum: Union[int, None] = field(default=None, hash=False, compare=False)
+    minimum: Optional[int] = field(default=None, hash=False, compare=False)
     """Optional minimum allowed value."""
-    maximum: Union[int, None] = field(default=None, hash=False, compare=False)
+    maximum: Optional[int] = field(default=None, hash=False, compare=False)
     """Optional maximum allowed value."""
 
     @staticmethod
@@ -483,11 +481,11 @@ class FloatParameter(WorkflowParameter):
 
     type_name: str = "float"
     """Parameter type name."""
-    default: Union[float, None] = field(default=None, hash=False, compare=False)
+    default: Optional[float] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    minimum: Union[float, None] = field(default=None, hash=False, compare=False)
+    minimum: Optional[float] = field(default=None, hash=False, compare=False)
     """Optional minimum allowed value."""
-    maximum: Union[float, None] = field(default=None, hash=False, compare=False)
+    maximum: Optional[float] = field(default=None, hash=False, compare=False)
     """Optional maximum allowed value."""
 
     @staticmethod
@@ -589,7 +587,7 @@ class DateTimeParameter(WorkflowParameter):
 
     type_name: str = "datetime"
     """Parameter type name."""
-    default: Union[datetime, None] = field(default=None, hash=False, compare=False)
+    default: Optional[datetime] = field(default=None, hash=False, compare=False)
     """Optional default value."""
 
     @staticmethod
@@ -697,7 +695,7 @@ class DurationParameter(WorkflowParameter):
 
     type_name: str = "duration"
     """Parameter type name."""
-    default: Union[timedelta, None] = field(default=None, hash=False, compare=False)
+    default: Optional[timedelta] = field(default=None, hash=False, compare=False)
     """Optional default value."""
 
     @staticmethod
@@ -838,7 +836,7 @@ class WorkflowType:
     """Technical name for the workflow."""
     workflow_type_description_name: str = field(hash=False, compare=False)
     """Human-readable name for the workflow."""
-    workflow_parameters: Union[List[WorkflowParameter], None] = field(
+    workflow_parameters: Optional[List[WorkflowParameter]] = field(
         default=None, hash=False, compare=False
     )
     """Optional list of non-ESDL workflow parameters."""

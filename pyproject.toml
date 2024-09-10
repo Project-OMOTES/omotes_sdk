@@ -71,10 +71,20 @@ requires = [
 enabled = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 64"
+addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 63"
 
 [tool.coverage.run]
 source = ["src"]
+omit = [
+    # omit generated code from protobuf
+    "*_pb2.py",
+]
+
+[tool.coverage.report]
+exclude_also = [
+    # A pragma comment that excludes an entire file:
+    "(?s)\\A.*# pragma: exclude file.*\\Z",
+]
 
 [tool.flake8]
 exclude = [
