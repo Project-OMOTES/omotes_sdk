@@ -25,8 +25,8 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.4.2",
+    "omotes-sdk-protocol ~= 0.1.4",
     "pamqp ~= 3.3.0",
-    "omotes-sdk-protocol ~= 0.1.1",
     "celery ~= 5.3.6",
     "typing-extensions ~= 4.11.0",
     "streamcapture ~= 1.2.4",
@@ -71,10 +71,14 @@ requires = [
 enabled = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 64"
+addopts = "--cov=omotes_sdk --cov-report html --cov-report term-missing --cov-fail-under 63"
 
 [tool.coverage.run]
 source = ["src"]
+omit = [
+    # omit generated code from protobuf
+    "*_pb2.py",
+]
 
 [tool.flake8]
 exclude = [

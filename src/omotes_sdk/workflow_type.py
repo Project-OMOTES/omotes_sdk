@@ -2,7 +2,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Union, Any, Type, TypeVar, cast
 from typing_extensions import Self, override
 
@@ -16,6 +16,7 @@ from omotes_sdk_protocol.workflow_pb2 import (
     IntegerParameter as IntegerParameterPb,
     FloatParameter as FloatParameterPb,
     DateTimeParameter as DateTimeParameterPb,
+    DurationParameter as DurationParameterPb,
 )
 from google.protobuf.struct_pb2 import Struct
 
@@ -42,9 +43,9 @@ class WorkflowParameter(ABC):
 
     key_name: str = field(hash=True, compare=True)
     """Key name for the parameter."""
-    title: Union[str, None] = field(default=None, hash=True, compare=True)
+    title: Optional[str] = field(default=None, hash=True, compare=True)
     """Optionally override the 'snake_case to text' 'key_name' (displayed above the input field)."""
-    description: Union[str, None] = field(default=None, hash=True, compare=True)
+    description: Optional[str] = field(default=None, hash=True, compare=True)
     """Optional description (displayed below the input field)."""
     type_name: str = ""
     """Parameter type name, set in child class."""
@@ -58,6 +59,7 @@ class WorkflowParameter(ABC):
             IntegerParameterPb,
             FloatParameterPb,
             DateTimeParameterPb,
+            DurationParameterPb,
         ]
     ]:
         """Abstract function to link this parameter to the protobuf parameter description.
@@ -75,6 +77,7 @@ class WorkflowParameter(ABC):
         IntegerParameterPb,
         FloatParameterPb,
         DateTimeParameterPb,
+        DurationParameterPb,
     ]:
         """Abstract function to generate a protobuf message from this class.
 
@@ -144,23 +147,13 @@ class StringParameter(WorkflowParameter):
 
     type_name: str = "string"
     """Parameter type name."""
-    default: Union[str, None] = field(default=None, hash=False, compare=False)
+    default: Optional[str] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    enum_options: Union[List[StringEnumOption], None] = field(
-        default=None, hash=False, compare=False
-    )
+    enum_options: Optional[List[StringEnumOption]] = field(default=None, hash=False, compare=False)
     """Optional multiple choice values."""
 
     @staticmethod
-    def get_pb_protocol_equivalent() -> Type[
-        Union[
-            StringParameterPb,
-            BooleanParameterPb,
-            IntegerParameterPb,
-            FloatParameterPb,
-            DateTimeParameterPb,
-        ]
-    ]:
+    def get_pb_protocol_equivalent() -> Type[StringParameterPb]:
         """Link the StringParameter description to the Protobuf StringParameter class.
 
         :return: StringParameterPb class.
@@ -292,15 +285,7 @@ class BooleanParameter(WorkflowParameter):
     """Optional default value."""
 
     @staticmethod
-    def get_pb_protocol_equivalent() -> Type[
-        Union[
-            StringParameterPb,
-            BooleanParameterPb,
-            IntegerParameterPb,
-            FloatParameterPb,
-            DateTimeParameterPb,
-        ]
-    ]:
+    def get_pb_protocol_equivalent() -> Type[BooleanParameterPb]:
         """Link the BooleanParameter description to the Protobuf BooleanParameter class.
 
         :return: BooleanParameterPb class.
@@ -385,11 +370,11 @@ class IntegerParameter(WorkflowParameter):
 
     type_name: str = "integer"
     """Parameter type name."""
-    default: Union[int, None] = field(default=None, hash=False, compare=False)
+    default: Optional[int] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    minimum: Union[int, None] = field(default=None, hash=False, compare=False)
+    minimum: Optional[int] = field(default=None, hash=False, compare=False)
     """Optional minimum allowed value."""
-    maximum: Union[int, None] = field(default=None, hash=False, compare=False)
+    maximum: Optional[int] = field(default=None, hash=False, compare=False)
     """Optional maximum allowed value."""
 
     @staticmethod
@@ -496,11 +481,11 @@ class FloatParameter(WorkflowParameter):
 
     type_name: str = "float"
     """Parameter type name."""
-    default: Union[float, None] = field(default=None, hash=False, compare=False)
+    default: Optional[float] = field(default=None, hash=False, compare=False)
     """Optional default value."""
-    minimum: Union[float, None] = field(default=None, hash=False, compare=False)
+    minimum: Optional[float] = field(default=None, hash=False, compare=False)
     """Optional minimum allowed value."""
-    maximum: Union[float, None] = field(default=None, hash=False, compare=False)
+    maximum: Optional[float] = field(default=None, hash=False, compare=False)
     """Optional maximum allowed value."""
 
     @staticmethod
@@ -602,7 +587,7 @@ class DateTimeParameter(WorkflowParameter):
 
     type_name: str = "datetime"
     """Parameter type name."""
-    default: Union[datetime, None] = field(default=None, hash=False, compare=False)
+    default: Optional[datetime] = field(default=None, hash=False, compare=False)
     """Optional default value."""
 
     @staticmethod
@@ -704,6 +689,114 @@ class DateTimeParameter(WorkflowParameter):
             )
 
 
+@dataclass(eq=True, frozen=True)
+class DurationParameter(WorkflowParameter):
+    """Define a datetime parameter this SDK supports."""
+
+    type_name: str = "duration"
+    """Parameter type name."""
+    default: Optional[timedelta] = field(default=None, hash=False, compare=False)
+    """Optional default value."""
+
+    @staticmethod
+    def get_pb_protocol_equivalent() -> Type[DurationParameterPb]:
+        """Link the DurationParameter class to the protobuf DurationParameter class.
+
+        :return: The DurationParameterPb class.
+        """
+        return DurationParameterPb
+
+    @override
+    def to_pb_message(self) -> DurationParameterPb:
+        """Generate a protobuf message from this class.
+
+        :return: Protobuf message representation.
+        """
+        if self.default is None:
+            default_value = None
+        else:
+            default_value = round(self.default.total_seconds() * 1000)
+        return DurationParameterPb(default=default_value)
+
+    @classmethod
+    @override
+    def from_pb_message(
+        cls, parameter_pb: WorkflowParameterPb, parameter_type_pb: DurationParameterPb
+    ) -> Self:
+        """Create a class instance from a protobuf message.
+
+        :param parameter_pb: protobuf message containing the base parameters.
+        :param parameter_type_pb: protobuf message containing the parameter type parameters.
+        :return: class instance.
+        """
+        if parameter_type_pb.HasField("default"):
+            try:
+                default = timedelta(milliseconds=parameter_type_pb.default)
+            except TypeError:
+                raise TypeError(
+                    f"Invalid default timedelta format, should be duration in milliseconds:"
+                    f" {parameter_type_pb.default}"
+                )
+        else:
+            default = None
+        return cls(
+            key_name=parameter_pb.key_name,
+            title=parameter_pb.title,
+            description=parameter_pb.description,
+            default=default,
+        )
+
+    @classmethod
+    @override
+    def from_json_config(cls, json_config: Dict) -> Self:
+        """Create a class instance from json configuration.
+
+        :param json_config: dictionary with configuration.
+        :return: class instance.
+        """
+        if "default" in json_config:
+            try:
+                default = timedelta(milliseconds=json_config["default"])
+            except TypeError:
+                raise TypeError(
+                    f"Invalid default timedelta format, should be duration in milliseconds:"
+                    f" '{json_config['default']}'"
+                )
+            json_config["default"] = default
+
+        return cls(**json_config)
+
+    @staticmethod
+    def from_pb_value(value: PBStructCompatibleTypes) -> timedelta:
+        """Unpack a Python timedelta from a protobuf float.
+
+        :param value: The protobuf int which is a packed Python timedelta.
+        :return: The Python timedelta.
+        """
+        if isinstance(value, (float, int)):
+            return timedelta(milliseconds=value)
+        else:
+            raise WrongFieldTypeException(
+                f'Cannot convert value "{value}" from a PB value as the type is {type(value)} '
+                f"while a float or int was expected."
+            )
+
+    @staticmethod
+    def to_pb_value(value: ParamsDictValues) -> float:
+        """Pack the Python timedelta into a protobuf-compatible float.
+
+        :param value: The timedelta datetime.
+        :return: The packed timedelta as a protobuf-compatible float.
+        """
+        if isinstance(value, timedelta):
+            return round(value.total_seconds() * 1000)
+        else:
+            raise WrongFieldTypeException(
+                f'Cannot convert value "{value}" to a PB value as the type is '
+                f"{type(value)} while a timedelta was expected."
+            )
+
+
 PARAMETER_CLASS_TO_PB_CLASS: Dict[
     Type[WorkflowParameter],
     Union[
@@ -712,6 +805,7 @@ PARAMETER_CLASS_TO_PB_CLASS: Dict[
         Type[IntegerParameterPb],
         Type[FloatParameterPb],
         Type[DateTimeParameterPb],
+        Type[DurationParameterPb],
     ],
 ] = {
     parameter: parameter.get_pb_protocol_equivalent()  # type: ignore[type-abstract]
@@ -725,6 +819,7 @@ PB_CLASS_TO_PARAMETER_CLASS: Dict[
         Type[IntegerParameterPb],
         Type[FloatParameterPb],
         Type[DateTimeParameterPb],
+        Type[DurationParameterPb],
     ],
     Type[WorkflowParameter],
 ] = {
@@ -741,7 +836,7 @@ class WorkflowType:
     """Technical name for the workflow."""
     workflow_type_description_name: str = field(hash=False, compare=False)
     """Human-readable name for the workflow."""
-    workflow_parameters: Union[List[WorkflowParameter], None] = field(
+    workflow_parameters: Optional[List[WorkflowParameter]] = field(
         default=None, hash=False, compare=False
     )
     """Optional list of non-ESDL workflow parameters."""
@@ -807,6 +902,7 @@ class WorkflowTypeManager:
                         IntegerParameter: parameter_pb.integer_parameter,
                         FloatParameter: parameter_pb.float_parameter,
                         DateTimeParameter: parameter_pb.datetime_parameter,
+                        DurationParameter: parameter_pb.duration_parameter,
                     }
                     for (
                         parameter_type_class,
