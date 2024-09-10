@@ -25,7 +25,8 @@ classifiers = [
 
 dependencies = [
     "aio-pika ~= 9.4.2",
-    "omotes-sdk-protocol ~= 0.1.3",
+    "omotes-sdk-protocol ~= 0.1.4",
+    "pamqp ~= 3.3.0",
     "celery ~= 5.3.6",
     "typing-extensions ~= 4.11.0",
     "streamcapture ~= 1.2.4",
