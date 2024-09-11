@@ -17,7 +17,7 @@ from omotes_sdk.internal.orchestrator_worker_events.messages.task_pb2 import (
     TaskResult,
     TaskProgressUpdate,
 )
-from omotes_sdk.types import ParamsDict
+from omotes_sdk.types import ProtobufDict
 
 logger = logging.getLogger("omotes_sdk_internal")
 
@@ -192,7 +192,7 @@ class WorkerTask(CeleryTask):
 
 
 def wrapped_worker_task(
-    task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: ParamsDict
+    task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: ProtobufDict
 ) -> None:
     """Task performed by Celery.
 
@@ -277,7 +277,7 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[str, ParamsDict, UpdateProgressHandler], str]
+WorkerTaskF = Callable[[str, ProtobufDict, UpdateProgressHandler], str]
 
 WORKER: Worker = None  # type: ignore [assignment]  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # type: ignore [assignment]  # noqa
