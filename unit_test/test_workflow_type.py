@@ -183,7 +183,7 @@ class TestModule(unittest.TestCase):
             "float": 2.0,
             "int": 3.0,
             "datetime": datetime.fromisoformat("2019-01-01T01:00:00").timestamp(),
-            "duration": 3_615_000.0,
+            "duration": 3_615.0,
         }
 
         self.assertEqual(json_format.MessageToDict(converted), expected_converted)
@@ -297,7 +297,7 @@ class TestModule(unittest.TestCase):
         )
 
         # Assert
-        expected_param = timedelta(seconds=3.615)
+        expected_param = timedelta(hours=1, seconds=15)
         self.assertEqual(param, expected_param)
 
     def test__parse_workflow_config_parameter__key_available_expect_int_but_get_float(self) -> None:
