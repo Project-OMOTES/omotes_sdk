@@ -763,6 +763,11 @@ class DurationParameter(WorkflowParameter):
         :return: class instance.
         """
         duration_params = ["default", "minimum", "maximum"]
+        args = {
+            "key_name": json_config["key_name"],
+            "title": json_config.get("title"),
+            "description": json_config.get("description"),
+        }
         for duration_param in duration_params:
             if duration_param in json_config and not isinstance(
                 json_config[duration_param], (int, float)
@@ -771,8 +776,10 @@ class DurationParameter(WorkflowParameter):
                     f"'{duration_param}' for DurationParameter must be a number in seconds:"
                     f" '{json_config[duration_param]}'"
                 )
+            elif duration_param in json_config:
+                args[duration_param] = timedelta(seconds=json_config[duration_param])
 
-        return cls(**json_config)
+        return cls(**args)
 
     @staticmethod
     def from_pb_value(value: PBStructCompatibleTypes) -> timedelta:
