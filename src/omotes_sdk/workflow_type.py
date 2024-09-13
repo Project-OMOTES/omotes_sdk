@@ -697,6 +697,10 @@ class DurationParameter(WorkflowParameter):
     """Parameter type name."""
     default: Optional[timedelta] = field(default=None, hash=False, compare=False)
     """Optional default value."""
+    minimum: Optional[timedelta] = field(default=None, hash=False, compare=False)
+    """Optional minimum allowed value."""
+    maximum: Optional[timedelta] = field(default=None, hash=False, compare=False)
+    """Optional maximum allowed value."""
 
     @staticmethod
     def get_pb_protocol_equivalent() -> Type[DurationParameterPb]:
@@ -712,11 +716,11 @@ class DurationParameter(WorkflowParameter):
 
         :return: Protobuf message representation.
         """
-        if self.default is None:
-            default_value = None
-        else:
-            default_value = round(self.default.total_seconds() * 1000)
-        return DurationParameterPb(default=default_value)
+        return DurationParameterPb(
+            default=None if self.default is None else self.default.total_seconds(),
+            minimum=None if self.minimum is None else self.minimum.total_seconds(),
+            maximum=None if self.maximum is None else self.maximum.total_seconds(),
+        )
 
     @classmethod
     @override
@@ -729,21 +733,25 @@ class DurationParameter(WorkflowParameter):
         :param parameter_type_pb: protobuf message containing the parameter type parameters.
         :return: class instance.
         """
-        if parameter_type_pb.HasField("default"):
-            try:
-                default = timedelta(milliseconds=parameter_type_pb.default)
-            except TypeError:
-                raise TypeError(
-                    f"Invalid default timedelta format, should be duration in milliseconds:"
-                    f" {parameter_type_pb.default}"
-                )
-        else:
-            default = None
         return cls(
             key_name=parameter_pb.key_name,
             title=parameter_pb.title,
             description=parameter_pb.description,
-            default=default,
+            default=(
+                timedelta(seconds=parameter_type_pb.default)
+                if parameter_type_pb.HasField("default")
+                else None
+            ),
+            minimum=(
+                timedelta(seconds=parameter_type_pb.minimum)
+                if parameter_type_pb.HasField("minimum")
+                else None
+            ),
+            maximum=(
+                timedelta(seconds=parameter_type_pb.maximum)
+                if parameter_type_pb.HasField("maximum")
+                else None
+            ),
         )
 
     @classmethod
@@ -754,15 +762,15 @@ class DurationParameter(WorkflowParameter):
         :param json_config: dictionary with configuration.
         :return: class instance.
         """
-        if "default" in json_config:
-            try:
-                default = timedelta(milliseconds=json_config["default"])
-            except TypeError:
+        duration_params = ["default", "minimum", "maximum"]
+        for duration_param in duration_params:
+            if duration_param in json_config and not isinstance(
+                json_config[duration_param], (int, float)
+            ):
                 raise TypeError(
-                    f"Invalid default timedelta format, should be duration in milliseconds:"
-                    f" '{json_config['default']}'"
+                    f"'{duration_param}' for DurationParameter must be a number in seconds:"
+                    f" '{json_config[duration_param]}'"
                 )
-            json_config["default"] = default
 
         return cls(**json_config)
 
@@ -774,7 +782,7 @@ class DurationParameter(WorkflowParameter):
         :return: The Python timedelta.
         """
         if isinstance(value, (float, int)):
-            return timedelta(milliseconds=value)
+            return timedelta(seconds=value)
         else:
             raise WrongFieldTypeException(
                 f'Cannot convert value "{value}" from a PB value as the type is {type(value)} '
@@ -789,7 +797,7 @@ class DurationParameter(WorkflowParameter):
         :return: The packed timedelta as a protobuf-compatible float.
         """
         if isinstance(value, timedelta):
-            return round(value.total_seconds() * 1000)
+            return value.total_seconds()
         else:
             raise WrongFieldTypeException(
                 f'Cannot convert value "{value}" to a PB value as the type is '
