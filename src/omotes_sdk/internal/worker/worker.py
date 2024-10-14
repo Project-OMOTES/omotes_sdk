@@ -125,10 +125,16 @@ class WorkerTask(CeleryTask):
         self.logs.close()
 
         job_id: UUID = args[0]
+        job_reference: str = args[1]
 
         result_message = None
         if status == "SUCCESS":
-            logger.info("Job %s (celery task id %s) was successful.", job_id, self.request.id)
+            logger.info(
+                "Job %s (celery task id %s) with reference %s was successful.",
+                job_id,
+                self.request.id,
+                job_reference,
+            )
             result_message = TaskResult(
                 job_id=str(job_id),
                 celery_task_id=self.request.id,
@@ -139,7 +145,12 @@ class WorkerTask(CeleryTask):
             )
 
         elif status == "FAILURE":
-            logger.info("Job %s (celery task id %s) failed.", job_id, self.request.id)
+            logger.info(
+                "Job %s (celery task id %s) with reference %s failed.",
+                job_id,
+                self.request.id,
+                job_reference,
+            )
             result_message = TaskResult(
                 job_id=str(job_id),
                 celery_task_id=self.request.id,
@@ -150,14 +161,15 @@ class WorkerTask(CeleryTask):
             )
         else:
             logger.error(
-                "Job %s led to unexpected celery task state %s. Please report or "
+                "Job %s with reference %s led to unexpected celery task state %s. Please report or "
                 "implement how to handle this state",
                 job_id,
+                job_reference,
                 status,
             )
 
         if result_message:
-            logger.debug("Sending result for job %s", job_id)
+            logger.debug("Sending result for job %s with reference", job_id, job_reference)
             self.broker_if.send_message_to(
                 None,
                 WORKER.config.task_result_queue_name,
@@ -165,8 +177,9 @@ class WorkerTask(CeleryTask):
             )
         else:
             logger.error(
-                "Did not send a job result for job %s. This should not happen. Status: %s",
+                "Did not send a job result for job %s with reference %s. This should not happen. Status: %s",
                 job_id,
+                job_reference,
                 status,
             )
 
@@ -190,7 +203,13 @@ class WorkerTask(CeleryTask):
         """
         super().on_failure(exc, task_id, args, kwargs, einfo)
         job_id: UUID = args[0]
-        logger.error("Failure detected for job %s celery task %s", job_id, task_id)
+        job_reference: str = args[1]
+        logger.error(
+            "Failure detected for job %s with reference %s celery task %s",
+            job_id,
+            job_reference,
+            task_id,
+        )
 
 
 def pyesdl_from_string(input_str: str) -> EnergySystemHandler:
@@ -221,22 +240,23 @@ def wrapped_worker_task(
     :param input_esdl: ESDL description which needs to be processed.
     :param params_dict: job, non-ESDL, parameters.
     """
-    logger.info("Worker started new task %s", job_id)
+    logger.info("Worker started new task %s with reference %s", job_id, job_reference)
     task_util = TaskUtil(job_id, task, task.broker_if)
     task_util.update_progress(0, "Job calculation started")
     output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
 
-    output_esh = pyesdl_from_string(output_esdl)
-    output_energy_system: EnergySystem = output_esh.energy_system
     input_esh = pyesdl_from_string(input_esdl)
     input_energy_system: EnergySystem = input_esh.energy_system
     if job_reference is None:
-        output_energy_system.name = f"{input_energy_system.name}_{WORKER_TASK_TYPE}"
+        new_name = f"{input_energy_system.name}_{WORKER_TASK_TYPE}"
     elif job_reference == "":
-        output_energy_system.name = f"{input_energy_system.name}"
+        new_name = f"{input_energy_system.name}"
     else:
-        output_energy_system.name = f"{input_energy_system.name}_{job_reference}"
+        new_name = f"{input_energy_system.name}_{job_reference}"
 
+    output_esh = pyesdl_from_string(output_esdl)
+    output_energy_system: EnergySystem = output_esh.energy_system
+    output_energy_system.name = new_name
     task.output_esdl = output_esh.to_string()
 
     task_util.update_progress(1.0, "Calculation finished.")
