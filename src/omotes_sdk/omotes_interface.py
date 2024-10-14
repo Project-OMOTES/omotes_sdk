@@ -349,7 +349,7 @@ class OmotesInterface:
 
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
         reconnect = False
-        logger.info("Submitting job %s", job.id)
+        logger.info("Submitting job %s with reference %s", job.id, job_reference)
         self.connect_to_submitted_job(
             job,
             callback_on_finished,
@@ -378,7 +378,7 @@ class OmotesInterface:
             routing_key=OmotesQueueNames.job_submission_queue_name(),
             message=job_submission_msg.SerializeToString(),
         )
-        logger.debug("Done submitting job %s", job.id)
+        logger.debug("Done submitting job %s with reference %s", job.id, job_reference)
 
         return job
 
