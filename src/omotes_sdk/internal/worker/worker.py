@@ -177,7 +177,8 @@ class WorkerTask(CeleryTask):
             )
         else:
             logger.error(
-                "Did not send a job result for job %s with reference %s. This should not happen. Status: %s",
+                "Did not send a job result for job %s with reference %s. This should not "
+                "happen. Status: %s",
                 job_id,
                 job_reference,
                 status,
