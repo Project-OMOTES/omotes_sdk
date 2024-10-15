@@ -10,6 +10,8 @@ from billiard.einfo import ExceptionInfo
 from celery import Task as CeleryTask, Celery
 from celery.apps.worker import Worker as CeleryWorker
 from kombu import Queue as KombuQueue
+from esdl import EnergySystem
+from esdl.esdl_handler import EnergySystemHandler
 
 from omotes_sdk.internal.worker.configs import WorkerConfig
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
@@ -123,10 +125,16 @@ class WorkerTask(CeleryTask):
         self.logs.close()
 
         job_id: UUID = args[0]
+        job_reference: str = args[1]
 
         result_message = None
         if status == "SUCCESS":
-            logger.info("Job %s (celery task id %s) was successful.", job_id, self.request.id)
+            logger.info(
+                "Job %s (celery task id %s) with reference %s was successful.",
+                job_id,
+                self.request.id,
+                job_reference,
+            )
             result_message = TaskResult(
                 job_id=str(job_id),
                 celery_task_id=self.request.id,
@@ -137,7 +145,12 @@ class WorkerTask(CeleryTask):
             )
 
         elif status == "FAILURE":
-            logger.info("Job %s (celery task id %s) failed.", job_id, self.request.id)
+            logger.info(
+                "Job %s (celery task id %s) with reference %s failed.",
+                job_id,
+                self.request.id,
+                job_reference,
+            )
             result_message = TaskResult(
                 job_id=str(job_id),
                 celery_task_id=self.request.id,
@@ -148,14 +161,15 @@ class WorkerTask(CeleryTask):
             )
         else:
             logger.error(
-                "Job %s led to unexpected celery task state %s. Please report or "
+                "Job %s with reference %s led to unexpected celery task state %s. Please report or "
                 "implement how to handle this state",
                 job_id,
+                job_reference,
                 status,
             )
 
         if result_message:
-            logger.debug("Sending result for job %s", job_id)
+            logger.debug("Sending result for job %s with reference", job_id, job_reference)
             self.broker_if.send_message_to(
                 None,
                 WORKER.config.task_result_queue_name,
@@ -163,8 +177,10 @@ class WorkerTask(CeleryTask):
             )
         else:
             logger.error(
-                "Did not send a job result for job %s. This should not happen. Status: %s",
+                "Did not send a job result for job %s with reference %s. This should not "
+                "happen. Status: %s",
                 job_id,
+                job_reference,
                 status,
             )
 
@@ -188,11 +204,29 @@ class WorkerTask(CeleryTask):
         """
         super().on_failure(exc, task_id, args, kwargs, einfo)
         job_id: UUID = args[0]
-        logger.error("Failure detected for job %s celery task %s", job_id, task_id)
+        job_reference: str = args[1]
+        logger.error(
+            "Failure detected for job %s with reference %s celery task %s",
+            job_id,
+            job_reference,
+            task_id,
+        )
+
+
+def pyesdl_from_string(input_str: str) -> EnergySystemHandler:
+    """
+    Loads esdl file from a string into memory.
+
+    Please note that it is not checked if the contents of the string is a valid esdl.
+    :param input_str: string containing the contents of an esdl file.
+    """
+    esh = EnergySystemHandler()
+    esh.load_from_string(input_str)
+    return esh
 
 
 def wrapped_worker_task(
-    task: WorkerTask, job_id: UUID, input_esdl: str, params_dict: ProtobufDict
+    task: WorkerTask, job_id: UUID, job_reference: str, input_esdl: str, params_dict: ProtobufDict
 ) -> None:
     """Task performed by Celery.
 
@@ -203,13 +237,28 @@ def wrapped_worker_task(
 
     :param task: Reference to the CeleryTask.
     :param job_id: Id of the job this task belongs to.
+    :param job_reference: A user-submitted reference to this job.
     :param input_esdl: ESDL description which needs to be processed.
     :param params_dict: job, non-ESDL, parameters.
     """
-    logger.info("Worker started new task %s", job_id)
+    logger.info("Worker started new task %s with reference %s", job_id, job_reference)
     task_util = TaskUtil(job_id, task, task.broker_if)
     task_util.update_progress(0, "Job calculation started")
-    task.output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
+    output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
+
+    input_esh = pyesdl_from_string(input_esdl)
+    input_energy_system: EnergySystem = input_esh.energy_system
+    if job_reference is None:
+        new_name = f"{input_energy_system.name}_{WORKER_TASK_TYPE}"
+    elif job_reference == "":
+        new_name = f"{input_energy_system.name}"
+    else:
+        new_name = f"{input_energy_system.name}_{job_reference}"
+
+    output_esh = pyesdl_from_string(output_esdl)
+    output_energy_system: EnergySystem = output_esh.energy_system
+    output_energy_system.name = new_name
+    task.output_esdl = output_esh.to_string()
 
     task_util.update_progress(1.0, "Calculation finished.")
 

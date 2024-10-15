@@ -8,7 +8,7 @@ from typing import Callable, Optional, Union
 from omotes_sdk.internal.common.broker_interface import (
     BrokerInterface,
     AMQPQueueType,
-    QueueMessageTTLArguments
+    QueueMessageTTLArguments,
 )
 from omotes_sdk.config import RabbitMQConfig
 from omotes_sdk_protocol.job_pb2 import (
@@ -182,7 +182,7 @@ class OmotesInterface:
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
         auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL,
-        reconnect: bool = True
+        reconnect: bool = True,
     ) -> None:
         """(Re)connect to the running job.
 
@@ -210,21 +210,24 @@ class OmotesInterface:
         job_status_queue_name = OmotesQueueNames.job_status_queue_name(job.id)
 
         if reconnect:
-            logger.info("Reconnect to the submitted job %s is set to True. "
-                        + "Checking job queues status...", job.id)
+            logger.info(
+                "Reconnect to the submitted job %s is set to True. "
+                + "Checking job queues status...",
+                job.id,
+            )
             if not self.broker_if.queue_exists(job_results_queue_name):
                 raise RuntimeError(
                     f"The {job_results_queue_name} queue does not exist or is removed. "
                     "Abort reconnecting to the queue."
                 )
-            if (callback_on_progress_update
-                    and not self.broker_if.queue_exists(job_progress_queue_name)):
+            if callback_on_progress_update and not self.broker_if.queue_exists(
+                job_progress_queue_name
+            ):
                 raise RuntimeError(
                     f"The {job_progress_queue_name} queue does not exist or is removed. "
                     "Abort reconnecting to the queue."
                 )
-            if (callback_on_status_update
-                    and not self.broker_if.queue_exists(job_status_queue_name)):
+            if callback_on_status_update and not self.broker_if.queue_exists(job_status_queue_name):
                 raise RuntimeError(
                     f"The {job_status_queue_name} queue does not exist or is removed. "
                     "Abort reconnecting to the queue."
@@ -242,19 +245,25 @@ class OmotesInterface:
         if auto_dead_letter_after_ttl is not None:
             message_ttl = auto_dead_letter_after_ttl
             queue_ttl = auto_dead_letter_after_ttl * 2
-            logger.info("Auto dead letter and cleanup on error after TTL is set. "
-                        + "The leftover job result message will be dead lettered after %s, "
-                        + "and leftover job queues will be discarded after %s.",
-                        message_ttl, queue_ttl)
+            logger.info(
+                "Auto dead letter and cleanup on error after TTL is set. "
+                + "The leftover job result message will be dead lettered after %s, "
+                + "and leftover job queues will be discarded after %s.",
+                message_ttl,
+                queue_ttl,
+            )
             job_result_queue_message_ttl = QueueMessageTTLArguments(
                 queue_ttl=queue_ttl,
                 message_ttl=message_ttl,
                 dead_letter_routing_key=OmotesQueueNames.job_result_dead_letter_queue_name(),
-                dead_letter_exchange=OmotesQueueNames.omotes_exchange_name())
+                dead_letter_exchange=OmotesQueueNames.omotes_exchange_name(),
+            )
             job_progress_status_queue_ttl = QueueMessageTTLArguments(queue_ttl=queue_ttl)
         else:
-            logger.info("Auto dead letter and cleanup on error after TTL is not set. "
-                        + "Manual cleanup on leftover job queues and messages might be required.")
+            logger.info(
+                "Auto dead letter and cleanup on error after TTL is not set. "
+                + "Manual cleanup on leftover job queues and messages might be required."
+            )
             job_result_queue_message_ttl = None
             job_progress_status_queue_ttl = None
 
@@ -272,7 +281,7 @@ class OmotesInterface:
             queue_type=AMQPQueueType.DURABLE,
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
             delete_after_messages=1,
-            queue_message_ttl=job_result_queue_message_ttl
+            queue_message_ttl=job_result_queue_message_ttl,
         )
         if callback_on_progress_update:
             self.broker_if.declare_queue_and_add_subscription(
@@ -280,7 +289,7 @@ class OmotesInterface:
                 callback_on_message=callback_handler.callback_on_progress_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
-                queue_message_ttl=job_progress_status_queue_ttl
+                queue_message_ttl=job_progress_status_queue_ttl,
             )
         if callback_on_status_update:
             self.broker_if.declare_queue_and_add_subscription(
@@ -288,7 +297,7 @@ class OmotesInterface:
                 callback_on_message=callback_handler.callback_on_status_update_wrapped,
                 queue_type=AMQPQueueType.DURABLE,
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
-                queue_message_ttl=job_progress_status_queue_ttl
+                queue_message_ttl=job_progress_status_queue_ttl,
             )
 
     def submit_job(
@@ -301,7 +310,8 @@ class OmotesInterface:
         callback_on_progress_update: Optional[Callable[[Job, JobProgressUpdate], None]],
         callback_on_status_update: Optional[Callable[[Job, JobStatusUpdate], None]],
         auto_disconnect_on_result: bool,
-        auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL
+        job_reference: Optional[str] = None,
+        auto_dead_letter_after_ttl: Optional[timedelta] = JOB_RESULT_MESSAGE_TTL,
     ) -> Job:
         """Submit a new job and connect to progress and status updates and the job result.
 
@@ -319,6 +329,8 @@ class OmotesInterface:
         :param auto_disconnect_on_result: Remove/disconnect from all queues pertaining to this job
             once the result is received and handled without exceptions through
             `callback_on_finished`.
+        :param job_reference: An optional reference to the submitted job which is used in the
+            name of the output ESDL as well as in internal logging of OMOTES.
         :param auto_dead_letter_after_ttl: When erroneous situations occur (e.g. client is offline),
             the job result message (if available) will be dead lettered after the given TTL,
             and all queues of this job will be removed subsequently. Default to 48 hours if unset.
@@ -337,7 +349,7 @@ class OmotesInterface:
 
         job = Job(id=uuid.uuid4(), workflow_type=workflow_type)
         reconnect = False
-        logger.info("Submitting job %s", job.id)
+        logger.info("Submitting job %s with reference %s", job.id, job_reference)
         self.connect_to_submitted_job(
             job,
             callback_on_finished,
@@ -345,7 +357,7 @@ class OmotesInterface:
             callback_on_status_update,
             auto_disconnect_on_result,
             auto_dead_letter_after_ttl,
-            reconnect
+            reconnect,
         )
 
         if job_timeout is not None:
@@ -359,13 +371,14 @@ class OmotesInterface:
             workflow_type=workflow_type.workflow_type_name,
             esdl=esdl,
             params_dict=convert_params_dict_to_struct(workflow_type, params_dict),
+            job_reference=job_reference,
         )
         self.broker_if.send_message_to(
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
             routing_key=OmotesQueueNames.job_submission_queue_name(),
             message=job_submission_msg.SerializeToString(),
         )
-        logger.debug("Done submitting job %s", job.id)
+        logger.debug("Done submitting job %s with reference %s", job.id, job_reference)
 
         return job
 
