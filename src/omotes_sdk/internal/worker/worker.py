@@ -169,7 +169,7 @@ class WorkerTask(CeleryTask):
             )
 
         if result_message:
-            logger.debug("Sending result for job %s with reference", job_id, job_reference)
+            logger.debug("Sending result for job %s with reference %s", job_id, job_reference)
             self.broker_if.send_message_to(
                 None,
                 WORKER.config.task_result_queue_name,
