@@ -1,9 +1,9 @@
 from datetime import timedelta, datetime
-from typing import List, Union, Mapping
+from typing import List, Union, Dict
 
 ParamsDictValues = Union[
     List["ParamsDictValues"], "ParamsDict", None, float, int, str, bool, datetime, timedelta
 ]
-ParamsDict = Mapping[str, ParamsDictValues]
+ParamsDict = Dict[str, ParamsDictValues]
 PBStructCompatibleTypes = Union[list, float, str, bool]
-ProtobufDict = Mapping[str, PBStructCompatibleTypes]
+ProtobufDict = Dict[str, PBStructCompatibleTypes]

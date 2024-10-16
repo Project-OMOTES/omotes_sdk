@@ -17,7 +17,7 @@ from omotes_sdk.workflow_type import (
     WorkflowTypeManager,
     DurationParameter,
 )
-from omotes_sdk.types import ParamsDict
+from omotes_sdk.types import ProtobufDict, ParamsDict
 
 
 class WorkflowTypeTest(unittest.TestCase):
@@ -191,7 +191,7 @@ class TestModule(unittest.TestCase):
     # TODO Reenable when list is integrated as a workflow parameter
     # def test__parse_workflow_config_parameter__list(self) -> None:
     #     # Arrange
-    #     workflow_config: ParamsDict = {"some-key": [1.0, 2.0, 3.0]}
+    #     workflow_config: ProtobufDict = {"some-key": [1.0, 2.0, 3.0]}
     #     field_key: str = "some-key"
     #     expected_type: Type[list] = list
     #     default_value: list[float] = []
@@ -207,7 +207,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__bool(self) -> None:
         # Arrange
-        workflow_config = {"some-key": True}
+        workflow_config: ProtobufDict = {"some-key": True}
         field_key = "some-key"
         expected_type = BooleanParameter
         default_value = False
@@ -222,7 +222,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__str(self) -> None:
         # Arrange
-        workflow_config = {"some-key": "some-str"}
+        workflow_config: ProtobufDict = {"some-key": "some-str"}
         field_key = "some-key"
         expected_type = StringParameter
         default_value = "default"
@@ -238,7 +238,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__float(self) -> None:
         # Arrange
-        workflow_config = {"some-key": 2.0}
+        workflow_config: ProtobufDict = {"some-key": 2.0}
         field_key = "some-key"
         expected_type = FloatParameter
         default_value = 1
@@ -254,7 +254,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__int(self) -> None:
         # Arrange
-        workflow_config = {"some-key": 2.0}
+        workflow_config: ProtobufDict = {"some-key": 2.0}
         field_key = "some-key"
         expected_type = IntegerParameter
         default_value = 3
@@ -270,7 +270,9 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__datetime(self) -> None:
         # Arrange
-        workflow_config = {"some-key": datetime.fromisoformat("2019-01-01T01:00:00").timestamp()}
+        workflow_config: ProtobufDict = {
+            "some-key": datetime.fromisoformat("2019-01-01T01:00:00").timestamp()
+        }
         field_key = "some-key"
         expected_type = DateTimeParameter
         default_value = datetime.fromisoformat("2019-01-01T00:00:00")
@@ -286,7 +288,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__timedelta(self) -> None:
         # Arrange
-        workflow_config = {"some-key": 3615.0}
+        workflow_config: ProtobufDict = {"some-key": 3615.0}
         field_key = "some-key"
         expected_type = DurationParameter
         default_value = timedelta(hours=1)
@@ -302,7 +304,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__key_available_expect_int_but_get_float(self) -> None:
         # Arrange
-        workflow_config = {"some-key": 1.4}
+        workflow_config: ProtobufDict = {"some-key": 1.4}
         field_key = "some-key"
         expected_type = IntegerParameter
         default_value = 2.0
@@ -318,7 +320,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__key_unavailable_but_default(self) -> None:
         # Arrange
-        workflow_config = {"no-key": 1.0}
+        workflow_config: ProtobufDict = {"no-key": 1.0}
         field_key = "some-key"
         expected_type = FloatParameter
         default_value = 2.0
@@ -334,7 +336,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__key_wrong_type_but_default(self) -> None:
         # Arrange
-        workflow_config = {"some-key": True}
+        workflow_config: ProtobufDict = {"some-key": True}
         field_key = "some-key"
         expected_type = FloatParameter
         default_value = 2.0
@@ -350,7 +352,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__key_missing_and_no_default(self) -> None:
         # Arrange
-        workflow_config = {"no-key": 1.0}
+        workflow_config: ProtobufDict = {"no-key": 1.0}
         field_key = "some-key"
         expected_type = FloatParameter
         default_value = None
@@ -363,7 +365,7 @@ class TestModule(unittest.TestCase):
 
     def test__parse_workflow_config_parameter__key_wrong_type_and_no_default(self) -> None:
         # Arrange
-        workflow_config = {"some-key": True}
+        workflow_config: ProtobufDict = {"some-key": True}
         field_key = "some-key"
         expected_type = FloatParameter
         default_value = None
