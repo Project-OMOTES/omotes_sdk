@@ -65,15 +65,28 @@ global___TaskResult = TaskResult
 class TaskProgressUpdate(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _ProgressStatus:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _ProgressStatusEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[TaskProgressUpdate._ProgressStatus.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        START: TaskProgressUpdate._ProgressStatus.ValueType  # 0
+
+    class ProgressStatus(_ProgressStatus, metaclass=_ProgressStatusEnumTypeWrapper): ...
+    START: TaskProgressUpdate.ProgressStatus.ValueType  # 0
+
     JOB_ID_FIELD_NUMBER: builtins.int
     CELERY_TASK_ID_FIELD_NUMBER: builtins.int
     CELERY_TASK_TYPE_FIELD_NUMBER: builtins.int
-    PROGRESS_FIELD_NUMBER: builtins.int
+    STATUS_FIELD_NUMBER: builtins.int
+    NUMERICAL_FIELD_NUMBER: builtins.int
     MESSAGE_FIELD_NUMBER: builtins.int
     job_id: builtins.str
     celery_task_id: builtins.str
     celery_task_type: builtins.str
-    progress: builtins.float
+    status: global___TaskProgressUpdate.ProgressStatus.ValueType
+    numerical: builtins.float
     message: builtins.str
     def __init__(
         self,
@@ -81,9 +94,12 @@ class TaskProgressUpdate(google.protobuf.message.Message):
         job_id: builtins.str = ...,
         celery_task_id: builtins.str = ...,
         celery_task_type: builtins.str = ...,
-        progress: builtins.float = ...,
+        status: global___TaskProgressUpdate.ProgressStatus.ValueType = ...,
+        numerical: builtins.float = ...,
         message: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["celery_task_id", b"celery_task_id", "celery_task_type", b"celery_task_type", "job_id", b"job_id", "message", b"message", "progress", b"progress"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["numerical", b"numerical", "progress", b"progress", "status", b"status"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["celery_task_id", b"celery_task_id", "celery_task_type", b"celery_task_type", "job_id", b"job_id", "message", b"message", "numerical", b"numerical", "progress", b"progress", "status", b"status"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["progress", b"progress"]) -> typing_extensions.Literal["status", "numerical"] | None: ...
 
 global___TaskProgressUpdate = TaskProgressUpdate
