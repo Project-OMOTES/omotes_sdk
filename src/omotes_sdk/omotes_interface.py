@@ -263,14 +263,6 @@ class OmotesInterface:
             auto_disconnect_handler,
         )
 
-        self.broker_if.declare_queue_and_add_subscription(
-            queue_name=job_results_queue_name,
-            callback_on_message=callback_handler.callback_on_finished_wrapped,
-            queue_type=AMQPQueueType.DURABLE,
-            exchange_name=OmotesQueueNames.omotes_exchange_name(),
-            delete_after_messages=1,
-            queue_ttl=job_queue_ttl,
-        )
         if callback_on_progress_update:
             self.broker_if.declare_queue_and_add_subscription(
                 queue_name=job_progress_queue_name,
@@ -287,6 +279,17 @@ class OmotesInterface:
                 exchange_name=OmotesQueueNames.omotes_exchange_name(),
                 queue_ttl=job_queue_ttl,
             )
+        # Declares the job result queue last to ensure the job progress
+        # and status queues are already declared and exist. This order allows
+        # them to be properly removed by _autodelete_progres_status_queues_on_result()
+        self.broker_if.declare_queue_and_add_subscription(
+            queue_name=job_results_queue_name,
+            callback_on_message=callback_handler.callback_on_finished_wrapped,
+            queue_type=AMQPQueueType.DURABLE,
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+            delete_after_messages=1,
+            queue_ttl=job_queue_ttl,
+        )
 
     def submit_job(
         self,
