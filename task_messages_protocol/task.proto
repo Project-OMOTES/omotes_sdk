@@ -18,9 +18,9 @@ message TaskProgressUpdate {
   string job_id = 1;
   string celery_task_id = 2;
   string celery_task_type = 5;
-  oneof progress {
+  oneof progress_type {
     ProgressStatus status = 6;
-    double numerical = 7;
+    double progress = 7;
   }
   string message = 4;
 

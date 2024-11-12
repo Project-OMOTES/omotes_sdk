@@ -80,13 +80,13 @@ class TaskProgressUpdate(google.protobuf.message.Message):
     CELERY_TASK_ID_FIELD_NUMBER: builtins.int
     CELERY_TASK_TYPE_FIELD_NUMBER: builtins.int
     STATUS_FIELD_NUMBER: builtins.int
-    NUMERICAL_FIELD_NUMBER: builtins.int
+    PROGRESS_FIELD_NUMBER: builtins.int
     MESSAGE_FIELD_NUMBER: builtins.int
     job_id: builtins.str
     celery_task_id: builtins.str
     celery_task_type: builtins.str
     status: global___TaskProgressUpdate.ProgressStatus.ValueType
-    numerical: builtins.float
+    progress: builtins.float
     message: builtins.str
     def __init__(
         self,
@@ -95,11 +95,11 @@ class TaskProgressUpdate(google.protobuf.message.Message):
         celery_task_id: builtins.str = ...,
         celery_task_type: builtins.str = ...,
         status: global___TaskProgressUpdate.ProgressStatus.ValueType = ...,
-        numerical: builtins.float = ...,
+        progress: builtins.float = ...,
         message: builtins.str = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["numerical", b"numerical", "progress", b"progress", "status", b"status"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["celery_task_id", b"celery_task_id", "celery_task_type", b"celery_task_type", "job_id", b"job_id", "message", b"message", "numerical", b"numerical", "progress", b"progress", "status", b"status"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["progress", b"progress"]) -> typing_extensions.Literal["status", "numerical"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["progress", b"progress", "progress_type", b"progress_type", "status", b"status"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["celery_task_id", b"celery_task_id", "celery_task_type", b"celery_task_type", "job_id", b"job_id", "message", b"message", "progress", b"progress", "progress_type", b"progress_type", "status", b"status"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["progress_type", b"progress_type"]) -> typing_extensions.Literal["status", "progress"] | None: ...
 
 global___TaskProgressUpdate = TaskProgressUpdate

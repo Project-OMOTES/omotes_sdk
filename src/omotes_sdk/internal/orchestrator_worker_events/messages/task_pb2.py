@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntask.proto\"\xdb\x01\n\nTaskResult\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63\x65lery_task_id\x18\x02 \x01(\t\x12\x18\n\x10\x63\x65lery_task_type\x18\x06 \x01(\t\x12+\n\x0bresult_type\x18\x03 \x01(\x0e\x32\x16.TaskResult.ResultType\x12\x18\n\x0boutput_esdl\x18\x04 \x01(\tH\x00\x88\x01\x01\x12\x0c\n\x04logs\x18\x05 \x01(\t\"&\n\nResultType\x12\r\n\tSUCCEEDED\x10\x00\x12\t\n\x05\x45RROR\x10\x01\x42\x0e\n\x0c_output_esdl\"\xdb\x01\n\x12TaskProgressUpdate\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63\x65lery_task_id\x18\x02 \x01(\t\x12\x18\n\x10\x63\x65lery_task_type\x18\x05 \x01(\t\x12\x34\n\x06status\x18\x06 \x01(\x0e\x32\".TaskProgressUpdate.ProgressStatusH\x00\x12\x13\n\tnumerical\x18\x07 \x01(\x01H\x00\x12\x0f\n\x07message\x18\x04 \x01(\t\"\x1b\n\x0eProgressStatus\x12\t\n\x05START\x10\x00\x42\n\n\x08progressb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ntask.proto\"\xdb\x01\n\nTaskResult\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63\x65lery_task_id\x18\x02 \x01(\t\x12\x18\n\x10\x63\x65lery_task_type\x18\x06 \x01(\t\x12+\n\x0bresult_type\x18\x03 \x01(\x0e\x32\x16.TaskResult.ResultType\x12\x18\n\x0boutput_esdl\x18\x04 \x01(\tH\x00\x88\x01\x01\x12\x0c\n\x04logs\x18\x05 \x01(\t\"&\n\nResultType\x12\r\n\tSUCCEEDED\x10\x00\x12\t\n\x05\x45RROR\x10\x01\x42\x0e\n\x0c_output_esdl\"\xdf\x01\n\x12TaskProgressUpdate\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x16\n\x0e\x63\x65lery_task_id\x18\x02 \x01(\t\x12\x18\n\x10\x63\x65lery_task_type\x18\x05 \x01(\t\x12\x34\n\x06status\x18\x06 \x01(\x0e\x32\".TaskProgressUpdate.ProgressStatusH\x00\x12\x12\n\x08progress\x18\x07 \x01(\x01H\x00\x12\x0f\n\x07message\x18\x04 \x01(\t\"\x1b\n\x0eProgressStatus\x12\t\n\x05START\x10\x00\x42\x0f\n\rprogress_typeb\x06proto3')
 
 
 
@@ -44,7 +44,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _TASKRESULT_RESULTTYPE._serialized_start=180
   _TASKRESULT_RESULTTYPE._serialized_end=218
   _TASKPROGRESSUPDATE._serialized_start=237
-  _TASKPROGRESSUPDATE._serialized_end=456
-  _TASKPROGRESSUPDATE_PROGRESSSTATUS._serialized_start=417
-  _TASKPROGRESSUPDATE_PROGRESSSTATUS._serialized_end=444
+  _TASKPROGRESSUPDATE._serialized_end=460
+  _TASKPROGRESSUPDATE_PROGRESSSTATUS._serialized_start=416
+  _TASKPROGRESSUPDATE_PROGRESSSTATUS._serialized_end=443
 # @@protoc_insertion_point(module_scope)
