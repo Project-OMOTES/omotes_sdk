@@ -18,6 +18,13 @@ message TaskProgressUpdate {
   string job_id = 1;
   string celery_task_id = 2;
   string celery_task_type = 5;
-  double progress = 3;
+  oneof progress {
+    ProgressStatus status = 6;
+    double numerical = 7;
+  }
   string message = 4;
+
+  enum ProgressStatus {
+    START = 0;
+  }
 }
