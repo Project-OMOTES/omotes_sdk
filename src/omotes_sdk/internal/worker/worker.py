@@ -45,6 +45,25 @@ class TaskUtil:
         self.task = task
         self.broker_if = broker_if
 
+    def send_start(self) -> None:
+        """Send a START progress update to the orchestrator."""
+        logger.debug(
+            "Sending START progress update for job %s (celery id %s)",
+            self.job_id,
+            self.task.request.id,
+        )
+        self.broker_if.send_message_to(
+            None,
+            WORKER.config.task_progress_queue_name,
+            TaskProgressUpdate(
+                job_id=str(self.job_id),
+                celery_task_id=self.task.request.id,
+                celery_task_type=WORKER_TASK_TYPE,
+                status=TaskProgressUpdate.START,
+                message="Started job at worker.",
+            ).SerializeToString(),
+        )
+
     def update_progress(self, fraction: float, message: str) -> None:
         """Send a progress update to the orchestrator.
 
@@ -243,7 +262,7 @@ def wrapped_worker_task(
     """
     logger.info("Worker started new task %s with reference %s", job_id, job_reference)
     task_util = TaskUtil(job_id, task, task.broker_if)
-    task_util.update_progress(0, "Job calculation started")
+    task_util.send_start()
     output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
 
     input_esh = pyesdl_from_string(input_esdl)
