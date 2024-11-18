@@ -7,10 +7,24 @@ message TaskResult {
   ResultType result_type = 3;
   optional string output_esdl = 4;
   string logs = 5;
+  repeated TaskEsdlMessage esdl_messages = 7;
 
   enum ResultType {
     SUCCEEDED = 0;
     ERROR = 1;
+  }
+}
+
+message TaskEsdlMessage {
+  string technical_message = 1;
+  Severity severity = 2;
+  optional string esdl_object_id = 3; // can be omitted for general energy system messages
+
+  enum Severity {
+    DEBUG = 0;
+    INFO = 1;
+    WARNING = 2;
+    ERROR = 3;
   }
 }
 

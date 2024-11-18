@@ -2,7 +2,7 @@ import io
 import logging
 import socket
 import sys
-from typing import Callable, Dict, List, Any, Optional
+from typing import Callable, Dict, List, Any, Optional, Tuple
 from uuid import UUID
 
 import streamcapture
@@ -13,11 +13,13 @@ from kombu import Queue as KombuQueue
 from esdl import EnergySystem
 from esdl.esdl_handler import EnergySystemHandler
 
+from omotes_sdk.internal.orchestrator_worker_events.esdl_messages import EsdlMessage
 from omotes_sdk.internal.worker.configs import WorkerConfig
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
 from omotes_sdk.internal.orchestrator_worker_events.messages.task_pb2 import (
     TaskResult,
     TaskProgressUpdate,
+    TaskEsdlMessage,
 )
 from omotes_sdk.types import ProtobufDict
 
@@ -99,11 +101,13 @@ class WorkerTask(CeleryTask):
     broker_if: BrokerInterface
 
     output_esdl: Optional[str]
+    esdl_messages: List[EsdlMessage]
 
     def __init__(self) -> None:
         """Create the worker task."""
         super().__init__()
         self.output_esdl = None
+        self.esdl_messages = []
 
     def before_start(self, task_id: str, args: List[Any], kwargs: Dict[str, Any]) -> None:
         """Runs before task start.
@@ -128,7 +132,7 @@ class WorkerTask(CeleryTask):
         kwargs: Dict[str, Any],
         einfo: str,
     ) -> None:
-        """Runs after task start.
+        """Runs after task finished.
 
         :param status: Task status.
         :param retval: Task return value.
@@ -143,27 +147,21 @@ class WorkerTask(CeleryTask):
         logs = self.logs.getvalue().decode()
         self.logs.close()
 
+        # to protobuf esdl messages:
+        esdl_messages_pb = [
+            TaskEsdlMessage(
+                technical_message=esdl_message.technical_message,
+                severity=TaskEsdlMessage.Severity.Value(esdl_message.severity.value),
+                esdl_object_id=esdl_message.esdl_object_id,
+            )
+            for esdl_message in self.esdl_messages
+        ]
+
         job_id: UUID = args[0]
         job_reference: str = args[1]
 
         result_message = None
-        if status == "SUCCESS":
-            logger.info(
-                "Job %s (celery task id %s) with reference %s was successful.",
-                job_id,
-                self.request.id,
-                job_reference,
-            )
-            result_message = TaskResult(
-                job_id=str(job_id),
-                celery_task_id=self.request.id,
-                celery_task_type=WORKER_TASK_TYPE,
-                result_type=TaskResult.ResultType.SUCCEEDED,
-                output_esdl=self.output_esdl,
-                logs=logs,
-            )
-
-        elif status == "FAILURE":
+        if status == "FAILURE" or not self.output_esdl:
             logger.info(
                 "Job %s (celery task id %s) with reference %s failed.",
                 job_id,
@@ -177,6 +175,23 @@ class WorkerTask(CeleryTask):
                 result_type=TaskResult.ResultType.ERROR,
                 output_esdl="",
                 logs=logs,
+                esdl_messages=esdl_messages_pb,
+            )
+        elif status == "SUCCESS":
+            logger.info(
+                "Job %s (celery task id %s) with reference %s was successful.",
+                job_id,
+                self.request.id,
+                job_reference,
+            )
+            result_message = TaskResult(
+                job_id=str(job_id),
+                celery_task_id=self.request.id,
+                celery_task_type=WORKER_TASK_TYPE,
+                result_type=TaskResult.ResultType.SUCCEEDED,
+                output_esdl=self.output_esdl,
+                logs=logs,
+                esdl_messages=esdl_messages_pb,
             )
         else:
             logger.error(
@@ -263,21 +278,30 @@ def wrapped_worker_task(
     logger.info("Worker started new task %s with reference %s", job_id, job_reference)
     task_util = TaskUtil(job_id, task, task.broker_if)
     task_util.send_start()
-    output_esdl = WORKER_TASK_FUNCTION(input_esdl, params_dict, task_util.update_progress)
+    output_esdl, esdl_messages = WORKER_TASK_FUNCTION(
+        input_esdl, params_dict, task_util.update_progress
+    )
 
-    input_esh = pyesdl_from_string(input_esdl)
-    input_energy_system: EnergySystem = input_esh.energy_system
-    if job_reference is None:
-        new_name = f"{input_energy_system.name}_{WORKER_TASK_TYPE}"
-    elif job_reference == "":
-        new_name = f"{input_energy_system.name}"
+    logger.warning(f"WORKER_TASK_FUNCTION output: {esdl_messages}, \n{output_esdl}, {task}")
+
+    if output_esdl:
+        input_esh = pyesdl_from_string(input_esdl)
+        input_energy_system: EnergySystem = input_esh.energy_system
+        if job_reference is None:
+            new_name = f"{input_energy_system.name}_{WORKER_TASK_TYPE}"
+        elif job_reference == "":
+            new_name = f"{input_energy_system.name}"
+        else:
+            new_name = f"{input_energy_system.name}_{job_reference}"
+
+        output_esh = pyesdl_from_string(output_esdl)
+        output_energy_system: EnergySystem = output_esh.energy_system
+        output_energy_system.name = new_name
+        task.output_esdl = output_esh.to_string()
     else:
-        new_name = f"{input_energy_system.name}_{job_reference}"
+        task.output_esdl = None
 
-    output_esh = pyesdl_from_string(output_esdl)
-    output_energy_system: EnergySystem = output_esh.energy_system
-    output_energy_system.name = new_name
-    task.output_esdl = output_esh.to_string()
+    task.esdl_messages = esdl_messages
 
     task_util.update_progress(1.0, "Calculation finished.")
 
@@ -345,7 +369,7 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[str, ProtobufDict, UpdateProgressHandler], str]
+WorkerTaskF = Callable[[str, ProtobufDict, UpdateProgressHandler], Tuple[str, List[EsdlMessage]]]
 
 WORKER: Worker = None  # type: ignore [assignment]  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # type: ignore [assignment]  # noqa
