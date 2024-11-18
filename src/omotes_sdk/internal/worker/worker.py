@@ -369,7 +369,13 @@ class Worker:
 
 
 UpdateProgressHandler = Callable[[float, str], None]
-WorkerTaskF = Callable[[str, ProtobufDict, UpdateProgressHandler], Tuple[str, List[EsdlMessage]]]
+WorkerTaskF = Callable[
+    [str, ProtobufDict, UpdateProgressHandler],
+    Tuple[
+        Optional[str],
+        List[EsdlMessage],
+    ],
+]
 
 WORKER: Worker = None  # type: ignore [assignment]  # noqa
 WORKER_TASK_FUNCTION: WorkerTaskF = None  # type: ignore [assignment]  # noqa
