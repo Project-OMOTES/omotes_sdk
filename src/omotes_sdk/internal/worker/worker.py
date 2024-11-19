@@ -177,7 +177,7 @@ class WorkerTask(CeleryTask):
                 logs=logs,
                 esdl_messages=esdl_messages_pb,
             )
-        if status == "FAILURE":
+        elif status == "FAILURE":
             logger.info(
                 "Job %s (celery task id %s) with reference %s failed.",
                 job_id,
