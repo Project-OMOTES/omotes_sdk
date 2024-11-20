@@ -16,10 +16,10 @@ from esdl.esdl_handler import EnergySystemHandler
 from omotes_sdk.internal.orchestrator_worker_events.esdl_messages import EsdlMessage
 from omotes_sdk.internal.worker.configs import WorkerConfig
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
-from omotes_sdk.internal.orchestrator_worker_events.messages.task_pb2 import (
+from omotes_sdk_protocol.job_pb2 import EsdlMessage as EsdlMessagePb
+from omotes_sdk_protocol.internal.task_pb2 import (
     TaskResult,
     TaskProgressUpdate,
-    TaskEsdlMessage,
 )
 from omotes_sdk.types import ProtobufDict
 
@@ -149,9 +149,9 @@ class WorkerTask(CeleryTask):
 
         # to protobuf esdl messages:
         esdl_messages_pb = [
-            TaskEsdlMessage(
+            EsdlMessagePb(
                 technical_message=esdl_message.technical_message,
-                severity=TaskEsdlMessage.Severity.Value(esdl_message.severity.value),
+                severity=EsdlMessagePb.Severity.Value(esdl_message.severity.value),
                 esdl_object_id=esdl_message.esdl_object_id,
             )
             for esdl_message in self.esdl_messages
@@ -161,23 +161,7 @@ class WorkerTask(CeleryTask):
         job_reference: str = args[1]
 
         result_message = None
-        if status == "SUCCESS":
-            logger.info(
-                "Job %s (celery task id %s) with reference %s was successful.",
-                job_id,
-                self.request.id,
-                job_reference,
-            )
-            result_message = TaskResult(
-                job_id=str(job_id),
-                celery_task_id=self.request.id,
-                celery_task_type=WORKER_TASK_TYPE,
-                result_type=TaskResult.ResultType.SUCCEEDED,
-                output_esdl=self.output_esdl,
-                logs=logs,
-                esdl_messages=esdl_messages_pb,
-            )
-        elif status == "FAILURE":
+        if status == "FAILURE" or not self.output_esdl:
             logger.info(
                 "Job %s (celery task id %s) with reference %s failed.",
                 job_id,
@@ -190,6 +174,22 @@ class WorkerTask(CeleryTask):
                 celery_task_type=WORKER_TASK_TYPE,
                 result_type=TaskResult.ResultType.ERROR,
                 output_esdl="",
+                logs=logs,
+                esdl_messages=esdl_messages_pb,
+            )
+        elif status == "SUCCESS":
+            logger.info(
+                "Job %s (celery task id %s) with reference %s was successful.",
+                job_id,
+                self.request.id,
+                job_reference,
+            )
+            result_message = TaskResult(
+                job_id=str(job_id),
+                celery_task_id=self.request.id,
+                celery_task_type=WORKER_TASK_TYPE,
+                result_type=TaskResult.ResultType.SUCCEEDED,
+                output_esdl=self.output_esdl,
                 logs=logs,
                 esdl_messages=esdl_messages_pb,
             )
