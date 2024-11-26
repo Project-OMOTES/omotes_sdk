@@ -16,7 +16,6 @@ from esdl.esdl_handler import EnergySystemHandler
 from omotes_sdk.internal.orchestrator_worker_events.esdl_messages import EsdlMessage
 from omotes_sdk.internal.worker.configs import WorkerConfig
 from omotes_sdk.internal.common.broker_interface import BrokerInterface
-from omotes_sdk_protocol.job_pb2 import EsdlMessage as EsdlMessagePb
 from omotes_sdk_protocol.internal.task_pb2 import (
     TaskResult,
     TaskProgressUpdate,
@@ -149,12 +148,7 @@ class WorkerTask(CeleryTask):
 
         # to protobuf esdl messages:
         esdl_messages_pb = [
-            EsdlMessagePb(
-                technical_message=esdl_message.technical_message,
-                severity=EsdlMessagePb.Severity.Value(esdl_message.severity.value),
-                esdl_object_id=esdl_message.esdl_object_id,
-            )
-            for esdl_message in self.esdl_messages
+            esdl_message.to_protobuf_message() for esdl_message in self.esdl_messages
         ]
 
         job_id: UUID = args[0]
