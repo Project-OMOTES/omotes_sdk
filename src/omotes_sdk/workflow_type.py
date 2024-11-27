@@ -844,6 +844,8 @@ PB_CLASS_TO_PARAMETER_CLASS: Dict[
     for parameter in WorkflowParameter.__subclasses__()
 }
 
+List["ParamsDictValues"], "ParamsDict", None, float, int, str, bool, datetime, timedelta
+
 
 def check_parameter_relation(
     value1: ParamsDictValues, value2: ParamsDictValues, check: ParameterRelation
@@ -856,14 +858,30 @@ def check_parameter_relation(
     :return: Always true if the function returns noting the parameter relation is adhered to.
     :raises RuntimeError: In case the parameter relation is not adhered to.
     """
+    supported_types = (float, int, datetime, timedelta)
+    if not isinstance(value1, supported_types) or not isinstance(value2, supported_types):
+        raise RuntimeError(
+            f"Values {value1}, {value2} are of a type that are not supported "
+            f"by parameter relation {check}"
+        )
+
+    same_type_required = (datetime, timedelta)
+    if (isinstance(value1, same_type_required) or isinstance(value2, same_type_required)) and type(
+        value1
+    ) is not type(value2):
+        raise RuntimeError(
+            f"Values {value1}, {value2} are required to be of the same type to be"
+            f"supported by parameter relation {check}"
+        )
+
     if check.relation == ParameterRelation.RelationType.GREATER:
-        result = value1 > value2
+        result = value1 > value2  # type: ignore[operator]
     elif check.relation == ParameterRelation.RelationType.GREATER_OR_EQ:
-        result = value1 >= value2
+        result = value1 >= value2  # type: ignore[operator]
     elif check.relation == ParameterRelation.RelationType.SMALLER:
-        result = value1 < value2
+        result = value1 < value2  # type: ignore[operator]
     elif check.relation == ParameterRelation.RelationType.SMALLER_OR_EQ:
-        result = value1 <= value2
+        result = value1 <= value2  # type: ignore[operator]
     else:
         raise RuntimeError("Unknown parameter relation. Please implement.")
 
