@@ -276,8 +276,6 @@ def wrapped_worker_task(
         input_esdl, params_dict, task_util.update_progress
     )
 
-    logger.warning(f"WORKER_TASK_FUNCTION output: {esdl_messages}, \n{output_esdl}, {task}")
-
     if output_esdl:
         input_esh = pyesdl_from_string(input_esdl)
         input_energy_system: EnergySystem = input_esh.energy_system
