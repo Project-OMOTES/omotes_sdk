@@ -52,7 +52,6 @@ dev = [
     "isort == 5.13.2",
     "build ~= 1.2.2",
     "mypy-protobuf ~= 3.5.0",
-    "setuptools-git-versioning < 2",
 ]
 
 [project.urls]
