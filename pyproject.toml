@@ -37,7 +37,7 @@ dependencies = [
 dev = [
     "setuptools ~= 75.6.0",
     "wheel ~= 0.45.1",
-    "setuptools-git-versioning < 2",
+    "setuptools-git-versioning >= 2.0, < 3",
     "black ~= 24.10.0",
     "flake8 == 7.1.1",
     "flake8-pyproject ~= 1.2.3",
@@ -66,7 +66,7 @@ build-backend = "setuptools.build_meta"
 requires = [
     "setuptools ~= 75.6.0",
     "wheel ~= 0.45.1",
-    "setuptools-git-versioning < 2",
+    "setuptools-git-versioning >= 2.0, < 3",
 ]
 
 [tool.setuptools.package-data]
