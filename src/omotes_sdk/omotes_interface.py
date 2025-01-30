@@ -17,6 +17,7 @@ from omotes_sdk_protocol.job_pb2 import (
     JobStatusUpdate,
     JobSubmission,
     JobCancel,
+    TimeSeriesDelete,
 )
 from omotes_sdk_protocol.workflow_pb2 import AvailableWorkflows, RequestAvailableWorkflows
 
@@ -375,7 +376,7 @@ class OmotesInterface:
     def cancel_job(self, job: Job) -> None:
         """Cancel a job.
 
-        If this succeeds or not will be send as a job status update through the
+        If this succeeds or not will be sent as a job status update through the
         `callback_on_status_update` handler. This method will not disconnect from the submitted job
         events. This will need to be done separately using `disconnect_from_submitted_job`.
 
@@ -387,6 +388,22 @@ class OmotesInterface:
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
             routing_key=OmotesQueueNames.job_cancel_queue_name(),
             message=cancel_msg.SerializeToString(),
+        )
+
+    def delete_time_series_data(self, ouput_esdl_id: str) -> None:
+        """Delete time series data.
+
+        The id of the omotes output ESDL is used as parameters since the omotes job id is not known
+        anymore after completion of a job.
+
+        :param esdl_id: The id of the output ESDL for which to delete the time series data.
+        """
+        logger.info("Deleting time series data for output ESDL id %s", ouput_esdl_id)
+        delete_time_series_msg = TimeSeriesDelete(ouput_esdl_id=str(ouput_esdl_id))
+        self.broker_if.send_message_to(
+            exchange_name=OmotesQueueNames.omotes_exchange_name(),
+            routing_key=OmotesQueueNames.time_series_delete_queue_name(),
+            message=delete_time_series_msg.SerializeToString(),
         )
 
     def connect_to_available_workflows_updates(self) -> None:

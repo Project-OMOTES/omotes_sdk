@@ -55,6 +55,16 @@ class OmotesQueueNames:
         """
         return "job_cancellations"
 
+
+    @staticmethod
+    def time_series_delete_queue_name() -> str:
+        """Generate the time series deletion queue name.
+
+        :return: The queue name.
+        """
+        return "time_series_deletions"
+
+
     @staticmethod
     def available_workflows_routing_key() -> str:
         """Generate the available work flows routing key.
