@@ -16,8 +16,7 @@ from omotes_sdk_protocol.job_pb2 import (
     JobProgressUpdate,
     JobStatusUpdate,
     JobSubmission,
-    JobCancel,
-    TimeSeriesDelete,
+    JobDelete,
 )
 from omotes_sdk_protocol.workflow_pb2 import AvailableWorkflows, RequestAvailableWorkflows
 
@@ -373,37 +372,22 @@ class OmotesInterface:
 
         return job
 
-    def cancel_job(self, job: Job) -> None:
-        """Cancel a job.
+    def delete_job(self, job: Job) -> None:
+        """Delete a job.
 
-        If this succeeds or not will be sent as a job status update through the
+        If the jobs is cancelled or not will be sent as a job status update through the
         `callback_on_status_update` handler. This method will not disconnect from the submitted job
         events. This will need to be done separately using `disconnect_from_submitted_job`.
+        Time series data, if present, will be deleted (after a waiting period).
 
-        :param job: The job to cancel.
+        :param job: The job to delete.
         """
-        logger.info("Cancelling job %s", job.id)
-        cancel_msg = JobCancel(uuid=str(job.id))
+        logger.info("Deleting job %s", job.id)
+        delete_msg = JobDelete(uuid=str(job.id))
         self.broker_if.send_message_to(
             exchange_name=OmotesQueueNames.omotes_exchange_name(),
-            routing_key=OmotesQueueNames.job_cancel_queue_name(),
-            message=cancel_msg.SerializeToString(),
-        )
-
-    def delete_time_series_data(self, ouput_esdl_id: str) -> None:
-        """Delete time series data.
-
-        The id of the omotes output ESDL is used as parameters since the omotes job id is not known
-        anymore after completion of a job.
-
-        :param esdl_id: The id of the output ESDL for which to delete the time series data.
-        """
-        logger.info("Deleting time series data for output ESDL id %s", ouput_esdl_id)
-        delete_time_series_msg = TimeSeriesDelete(ouput_esdl_id=str(ouput_esdl_id))
-        self.broker_if.send_message_to(
-            exchange_name=OmotesQueueNames.omotes_exchange_name(),
-            routing_key=OmotesQueueNames.time_series_delete_queue_name(),
-            message=delete_time_series_msg.SerializeToString(),
+            routing_key=OmotesQueueNames.job_delete_queue_name(),
+            message=delete_msg.SerializeToString(),
         )
 
     def connect_to_available_workflows_updates(self) -> None:

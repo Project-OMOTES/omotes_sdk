@@ -48,21 +48,12 @@ class OmotesQueueNames:
         return f"jobs.{job_uuid}.status"
 
     @staticmethod
-    def job_cancel_queue_name() -> str:
-        """Generate the job cancellation queue name.
+    def job_delete_queue_name() -> str:
+        """Generate the job deletion queue name.
 
         :return: The queue name.
         """
-        return "job_cancellations"
-
-
-    @staticmethod
-    def time_series_delete_queue_name() -> str:
-        """Generate the time series deletion queue name.
-
-        :return: The queue name.
-        """
-        return "time_series_deletions"
+        return "job_deletions"
 
 
     @staticmethod
